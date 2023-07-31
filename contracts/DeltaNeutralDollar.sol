@@ -132,13 +132,16 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         uint256 debtEth = SafeTransferLib.balanceOf(variableDebtTokenAddress, address(this));
 
+        if (debtEth == 0) {
+            collateralWithdraw(type(uint).max);
+            approveAndSwap(stableToken, ethToken, SafeTransferLib.balanceOf(address(stableToken), address(this)));
+            return;
+        }
+
         uint256 balanceEth = SafeTransferLib.balanceOf(address(ethToken), address(this));
 
-        if (balanceEth > debtEth) {
-            // FIXME what if 0?
+        if (balanceEth >= debtEth) {
             debtRepay(type(uint256).max);
-
-            // FIXME what if 0?
             collateralWithdraw(type(uint).max);
             approveAndSwap(stableToken, ethToken, SafeTransferLib.balanceOf(address(stableToken), address(this)));
 
