@@ -484,9 +484,9 @@ describe("DeltaNeutralDollar", function() {
       return x >= quarter / 100n * 98n && x <= quarter / 100n * 102n;
     }
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, true)).to.emit(deltaNeutralDollar, "Withdraw").withArgs(myBalanceBefore / 4n, quarterOfEth, quarterOfEthInStable);
+    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, true)).to.emit(deltaNeutralDollar, 'Withdraw').withArgs(myBalanceBefore / 4n, quarterOfEth, quarterOfEthInStable);
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false)).to.emit(deltaNeutralDollar, "Withdraw").withArgs(myBalanceBefore / 4n, quarterOfEth, 0);
+    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false)).to.emit(deltaNeutralDollar, 'Withdraw').withArgs(myBalanceBefore / 4n, quarterOfEth, 0);
   });
 
   it("deposit must emit events", async () => {
@@ -494,7 +494,7 @@ describe("DeltaNeutralDollar", function() {
       return x >= (wethPrice / 100n * 98n) && x <= (wethPrice / 100n * 102n);
     }
 
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.emit(deltaNeutralDollar, "Deposit").withArgs(correctBaseAmount, ONE_ETHER);
+    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.emit(deltaNeutralDollar, 'Deposit').withArgs(correctBaseAmount, ONE_ETHER);
   });
 
   it("transfer tokens", async () => {
