@@ -16,6 +16,16 @@ const WSTETH_ARBITRUM = '0x5979D7b546E38E414F7E9822514be443A4800529'; // wstETH,
 const FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 const FLAGS_WITHDRAW_PAUSED = 1 << 2;
 
+const ERROR_OPERATION_DISABLED_BY_FLAGS = 'DND-01';
+const ERROR_ONLY_FLASHLOAN_LENDER = 'DND-02';
+const ERROR_INCORRECT_FLASHLOAN_TOKEN_RECEIVED = 'DND-03';
+const ERROR_UNKNOWN_FLASHLOAN_MODE = 'DND-04';
+const ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT = 'DND-05';
+const ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = 'DND-06';
+const ERROR_POSITION_CLOSED = 'DND-07';
+const ERROR_POSITION_UNCHANGED = 'DND-08';
+const ERROR_IMPOSSIBLE_MODE = 'DND-09';
+
 describe("DeltaNeutralDollar", function() {
   let snapshot, initialSnapshot;
 
@@ -545,7 +555,7 @@ describe("DeltaNeutralDollar", function() {
     settings.flags = FLAGS_DEPOSIT_PAUSED;
     await deltaNeutralDollar.connect(ownerAccount).setSettings(settings);
 
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER / 2n)).to.be.revertedWith('FLAGS');
+    await expect(deltaNeutralDollar.deposit(ONE_ETHER / 2n)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
 
     await deltaNeutralDollar.withdraw(await deltaNeutralDollar.balanceOf(myAccount.address) / 2n, false); // withdraw still allowed
   });
@@ -557,7 +567,7 @@ describe("DeltaNeutralDollar", function() {
     settings.flags = FLAGS_WITHDRAW_PAUSED;
     await deltaNeutralDollar.connect(ownerAccount).setSettings(settings);
 
-    await expect(deltaNeutralDollar.withdraw(100, false)).to.be.revertedWith('FLAGS');
+    await expect(deltaNeutralDollar.withdraw(100, false)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
 
     await deltaNeutralDollar.deposit(ONE_ETHER / 2n); // deposit still allowed
   });
@@ -593,7 +603,7 @@ describe("DeltaNeutralDollar", function() {
   it("disallow deposit after close position", async () => {
     await deltaNeutralDollar.deposit(ONE_ETHER);
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.be.revertedWith('FLAGS');
+    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
   });
 
   it("eth price down then close position", async () => {
@@ -695,7 +705,7 @@ describe("DeltaNeutralDollar", function() {
     expect(userDataAfter.totalDebtBase).to.be.lt(userDataBefore.totalDebtBase);
   });
 
-  it.only("eth price up then liquidation then close", async () => {
+  it("eth price up then liquidation then close", async () => {
     await deltaNeutralDollar.deposit(ONE_ETHER);
 
     // burn to zero
@@ -803,5 +813,14 @@ describe("DeltaNeutralDollar", function() {
         settings
       )
     ).to.be.revertedWith('Initializable: contract is already initialized');
+  });
+
+  it("only balancer vault can call flash loan", async () => {
+    const tokens = [ await usdc.getAddress() ];
+    const amounts = [ 1 ];
+    const feeAmounts = [ 0 ];
+    const userData = ethers.encodeBytes32String('');
+
+    await expect(deltaNeutralDollar.receiveFlashLoan(tokens, amounts, feeAmounts, userData)).to.be.revertedWith(ERROR_ONLY_FLASHLOAN_LENDER);
   });
 });

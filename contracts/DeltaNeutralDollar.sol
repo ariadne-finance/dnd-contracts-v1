@@ -39,6 +39,16 @@ uint16 constant MIN_REBALANCE_PERCENT_MULTIPLIER = 1000;
 
 uint256 constant EXTRACT_LTV_FROM_POOL_CONFIGURATION_DATA_MASK = (1 << 16) - 1;
 
+string constant ERROR_OPERATION_DISABLED_BY_FLAGS = 'DND-01';
+string constant ERROR_ONLY_FLASHLOAN_LENDER = 'DND-02';
+string constant ERROR_INCORRECT_FLASHLOAN_TOKEN_RECEIVED = 'DND-03';
+string constant ERROR_UNKNOWN_FLASHLOAN_MODE = 'DND-04';
+string constant ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT = 'DND-05';
+string constant ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = 'DND-06';
+string constant ERROR_POSITION_CLOSED = 'DND-07';
+string constant ERROR_POSITION_UNCHANGED = 'DND-08';
+string constant ERROR_IMPOSSIBLE_MODE = 'DND-09';
+
 contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     struct Settings {
         address swapHelper;
@@ -113,12 +123,12 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     }
 
     modifier whenNotPaused(uint8 whatExactly) {
-        require((settings.flags & whatExactly) != whatExactly, "FLAGS");
+        require((settings.flags & whatExactly) != whatExactly, ERROR_OPERATION_DISABLED_BY_FLAGS);
         _;
     }
 
     modifier onlyBalancerVault() {
-        require(msg.sender == address(balancerVault), "FL SENDER");
+        require(msg.sender == address(balancerVault), ERROR_ONLY_FLASHLOAN_LENDER);
         _;
     }
 
@@ -128,6 +138,8 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         (, , address variableDebtTokenAddress) = poolDataProvider().getReserveTokensAddresses(address(ethToken));
 
         uint256 debtEth = SafeTransferLib.balanceOf(variableDebtTokenAddress, address(this));
+
+        // FIXME emit closePosition
 
         if (debtEth == 0) {
             collateralWithdraw(type(uint).max);
@@ -201,7 +213,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     function _rebalance(bool shouldRevert) internal {
         if (settings.flags & FLAGS_POSITION_CLOSED == FLAGS_POSITION_CLOSED) {
             if (shouldRevert) {
-                revert("CLOSED");
+                revert(ERROR_POSITION_CLOSED);
             }
 
             return;
@@ -214,7 +226,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         if (collateralChangeBase == 0 && debtChangeBase == 0) {
             if (shouldRevert) {
-                revert("UNCHANGED");
+                revert(ERROR_POSITION_UNCHANGED);
             }
 
             return;
@@ -260,7 +272,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             implementSupply(SignedMathUpgradeable.abs(collateralChangeBase), ethPrice);
 
         } else {
-            revert("UNREACHABLE");
+            revert(ERROR_IMPOSSIBLE_MODE);
         }
     }
 
@@ -280,7 +292,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         uint256 myBalanceEth = SafeTransferLib.balanceOf(address(ethToken), address(this));
 
-        if (repayDebtEth < myBalanceEth) {
+        if (repayDebtEth <= myBalanceEth) {
             implementRepay(repayDebtBase, ethPrice);
             implementWithdraw(withdrawCollateralBase, oracle().getAssetPrice(address(stableToken)));
             return;
@@ -300,10 +312,15 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
     function implementSupplyThenBorrow(uint256 supplyCollateralBase, uint256 borrowDebtBase, uint256 ethPrice) internal {
         uint256 supplyCollateralEth = convertBaseToEth(supplyCollateralBase, ethPrice);
-        require(supplyCollateralEth > 5, "UNDERFLOW COLLATERAL");
 
         uint256 collateralEth = supplyCollateralEth / 5;
+
+        // this actually cannot happen, because base currency in aave is 8 decimals and ether is 18, so smallest
+        // aave amount is divisable by 5. But we keep this sanity check anyway.
+        assert(collateralEth > 0);
+
         uint256 collateralStable = approveAndSwap(ethToken, stableToken, collateralEth);
+        assert(collateralStable > 0);
 
         uint256 flashLoanStable = collateralStable * 4;
 
@@ -329,13 +346,13 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
     function implementWithdraw(uint256 withdrawCollateralBase, uint256 stablePrice) internal {
         uint256 withdrawCollateralStable = convertBaseToStable(withdrawCollateralBase, stablePrice);
+        assert(withdrawCollateralStable > 0);
         collateralWithdraw(withdrawCollateralStable);
         approveAndSwap(stableToken, ethToken, withdrawCollateralStable);
     }
 
     function receiveFlashLoanRebalanceSupplyAndBorrow(uint256 flashLoanStable, uint256 positionStable, uint256 borrowDebtEth) internal {
         collateralSupply(positionStable);
-
         debtBorrow(borrowDebtEth);
 
         uint256 ethPrice = oracle().getAssetPrice(address(ethToken));
@@ -346,9 +363,10 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 feeEth = ISwapHelper(settings.swapHelper).calcSwapFee(address(ethToken), address(stableToken), ethToSwap);
         ethToSwap = ethToSwap + feeEth;
 
+        // at this point we assume we always have enough eth to cover swap fees
         approveAndSwap(ethToken, stableToken, ethToSwap);
 
-        require(SafeTransferLib.balanceOf(address(stableToken), address(this)) > flashLoanStable, "NO FL STABLE");
+        assert(SafeTransferLib.balanceOf(address(stableToken), address(this)) >= flashLoanStable);
 
         SafeTransferLib.safeTransfer(address(stableToken), address(balancerVault), flashLoanStable);
 
@@ -360,7 +378,6 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
     function receiveFlashLoanClosePosition(uint256 flashLoanEth) internal {
         debtRepay(type(uint256).max);
-
         collateralWithdraw(type(uint).max);
 
         approveAndSwap(stableToken, ethToken, SafeTransferLib.balanceOf(address(stableToken), address(this)));
@@ -372,6 +389,8 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         debtRepay(repayDebtEth);
 
         uint256 withdrawCollateralStable = convertBaseToStable(withdrawCollateralBase, oracle().getAssetPrice(address(stableToken)));
+        assert(withdrawCollateralStable > 0);
+
         collateralWithdraw(withdrawCollateralStable);
 
         approveAndSwap(stableToken, ethToken, withdrawCollateralStable);
@@ -383,23 +402,26 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         (uint8 mode) = abi.decode(userData, (uint8));
 
         if (mode == FLASH_LOAN_MODE_REBALANCE_SUPPLY_AND_BORROW) {
+            require(tokens.length == 1 && tokens[0] == stableToken, ERROR_INCORRECT_FLASHLOAN_TOKEN_RECEIVED);
             (, uint256 borrowDebtEth, uint256 positionStable) = abi.decode(userData, (uint8, uint256, uint256));
             receiveFlashLoanRebalanceSupplyAndBorrow(amounts[0], positionStable, borrowDebtEth);
             return;
         }
 
         if (mode == FLASH_LOAN_MODE_CLOSE_POSITION) {
+            require(tokens.length == 1 && tokens[0] == ethToken, ERROR_INCORRECT_FLASHLOAN_TOKEN_RECEIVED);
             receiveFlashLoanClosePosition(amounts[0]);
             return;
         }
 
         if (mode == FLASH_LOAN_MODE_REBALANCE_REPAY_THEN_WITHDRAW) {
+            require(tokens.length == 1 && tokens[0] == ethToken, ERROR_INCORRECT_FLASHLOAN_TOKEN_RECEIVED);
             (, uint256 repayDebtEth, uint256 withdrawCollateralBase) = abi.decode(userData, (uint8, uint256, uint256));
             receiveFlashLoanRepayThenWithdraw(amounts[0], repayDebtEth, withdrawCollateralBase);
             return;
         }
 
-        require(false, "UNKNOWN MODE");
+        require(false, ERROR_UNKNOWN_FLASHLOAN_MODE);
     }
 
     function _collect(address tokenAddress, address to) internal {
@@ -423,7 +445,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     }
 
     function deposit(uint256 amountEth) public whenNotPaused(FLAGS_DEPOSIT_PAUSED) whenNotPaused(FLAGS_POSITION_CLOSED) {
-        require(amountEth > 0 && amountEth >= settings.minEthToDeposit, "AMOUNT");
+        require(amountEth > 0 && amountEth >= settings.minEthToDeposit, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
         uint256 totalBalanceBaseBefore = totalBalance();
 
@@ -441,23 +463,29 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 totalBalanceAddedPercent = MathUpgradeable.mulDiv(totalBalanceBaseAfter, 10e18, totalBalanceBaseBefore) - 10e18;
 
         uint256 minted = MathUpgradeable.mulDiv(totalSupply(), totalBalanceAddedPercent, 10e18);
+        assert(minted > 0);
+
         emit Deposit(minted, amountEth);
+
         _mint(msg.sender, minted);
     }
 
     function withdraw(uint256 amount, bool shouldSwapToStable) public whenNotPaused(FLAGS_WITHDRAW_PAUSED) {
-        require(amount > 0 && amount >= settings.minAmountToWithdraw, "AMOUNT");
+        require(amount > 0 && amount >= settings.minAmountToWithdraw, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
         uint256 percent = MathUpgradeable.mulDiv(amount, 10e18, totalSupply());
+        assert(percent > 0);
 
         _burn(msg.sender, amount);
 
         uint256 amountBase = MathUpgradeable.mulDiv(totalBalance(), percent, 10e18);
+        assert(amountBase > 0);
+
         uint256 ethPrice = oracle().getAssetPrice(address(ethToken));
         uint256 amountEth = convertBaseToEth(amountBase, ethPrice);
+        assert(amountEth > 0);
 
-        require(amountEth > 0, "ZERO");
-        require(amountEth <= SafeTransferLib.balanceOf(address(ethToken), address(this)), "NOT READY");
+        require(amountEth <= SafeTransferLib.balanceOf(address(ethToken), address(this)), ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL);
 
         uint256 amountStable = 0;
 
@@ -503,15 +531,21 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     }
 
     function approveAndSwap(IERC20 from, IERC20 to, uint256 amount) internal returns (uint256) {
+        if (amount == 0) {
+            return 0;
+        }
+
         possiblyApprove(from, settings.swapHelper, amount);
+
         return ISwapHelper(settings.swapHelper).swap(address(from), address(to), amount, address(this));
     }
 
     function possiblyApprove(IERC20 token, address spender, uint256 amount) internal {
-        if (token.allowance(address(this), spender) > 0) {
-            SafeTransferLib.safeApprove(address(token), spender, 0);
+        if (token.allowance(address(this), spender) >= amount) {
+            return;
         }
 
+        SafeTransferLib.safeApprove(address(token), spender, 0);
         SafeTransferLib.safeApprove(address(token), spender, amount);
     }
 
