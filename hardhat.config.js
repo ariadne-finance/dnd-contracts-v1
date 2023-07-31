@@ -55,11 +55,12 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: '0.8.19',
+        version: '0.8.21',
         settings: {
+          evmVersion: "paris",
           optimizer: {
             enabled: true,
-            runs: 200
+            runs: 200,
           },
           outputSelection: {
             "*": {
