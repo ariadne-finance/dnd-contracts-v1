@@ -24,9 +24,6 @@ import { SafeTransferLib } from "solady/src/utils/SafeTransferLib.sol";
 
 import { ISwapHelper } from "./ISwapHelper.sol";
 
-// FIXME support raw repay and raw withdrawal in order to close position manually?
-// FIXME rename perfect() in frontend code
-
 uint256 constant AAVE_INTEREST_RATE_MODE_VARIABLE = 2;
 
 uint8 constant FLASH_LOAN_MODE_CLOSE_POSITION = 3;
@@ -223,7 +220,6 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             return;
         }
 
-        // FIXME maybe after it is actually changed?
         emit PositionChange(SafeTransferLib.balanceOf(address(ethToken), address(this)), totalCollateralBase, totalDebtBase, collateralChangeBase, debtChangeBase);
 
         // FIXME explain all these cases
