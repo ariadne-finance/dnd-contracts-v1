@@ -39,15 +39,15 @@ uint16 constant MIN_REBALANCE_PERCENT_MULTIPLIER = 1000;
 
 uint256 constant EXTRACT_LTV_FROM_POOL_CONFIGURATION_DATA_MASK = (1 << 16) - 1;
 
-string constant ERROR_OPERATION_DISABLED_BY_FLAGS = 'DND-01';
-string constant ERROR_ONLY_FLASHLOAN_LENDER = 'DND-02';
-string constant ERROR_INCORRECT_FLASHLOAN_TOKEN_RECEIVED = 'DND-03';
-string constant ERROR_UNKNOWN_FLASHLOAN_MODE = 'DND-04';
-string constant ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT = 'DND-05';
-string constant ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = 'DND-06';
-string constant ERROR_POSITION_CLOSED = 'DND-07';
-string constant ERROR_POSITION_UNCHANGED = 'DND-08';
-string constant ERROR_IMPOSSIBLE_MODE = 'DND-09';
+string constant ERROR_OPERATION_DISABLED_BY_FLAGS = "DND-01";
+string constant ERROR_ONLY_FLASHLOAN_LENDER = "DND-02";
+string constant ERROR_INCORRECT_FLASHLOAN_TOKEN_RECEIVED = "DND-03";
+string constant ERROR_UNKNOWN_FLASHLOAN_MODE = "DND-04";
+string constant ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT = "DND-05";
+string constant ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = "DND-06";
+string constant ERROR_POSITION_CLOSED = "DND-07";
+string constant ERROR_POSITION_UNCHANGED = "DND-08";
+string constant ERROR_IMPOSSIBLE_MODE = "DND-09";
 
 contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     struct Settings {
