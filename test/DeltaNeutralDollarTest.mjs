@@ -572,16 +572,20 @@ describe("DeltaNeutralDollar", function() {
     await deltaNeutralDollar.deposit(ONE_ETHER / 2n); // deposit still allowed
   });
 
-  it("close position with balance", async () => {
+  it("close position with balance and emit event", async () => {
     await deltaNeutralDollar.deposit(ONE_ETHER);
 
-    await deltaNeutralDollar.connect(ownerAccount).closePosition();
+    function aboutOneEther(x) {
+      return x >= (ONE_ETHER / 100n * 98n) && x <= (ONE_ETHER / 100n * 102n);
+    }
+
+    await expect(deltaNeutralDollar.connect(ownerAccount).closePosition()).to.emit(deltaNeutralDollar, 'PositionClose').withArgs(aboutOneEther);
 
     expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER, 1.1);
     expect(await usdc.balanceOf(await deltaNeutralDollar.getAddress())).to.be.eq(0);
   });
 
-  it("close position with flash loan", async () => {
+  it("close position with flash loan and emit event", async () => {
     await deltaNeutralDollar.deposit(ONE_ETHER);
 
     const before = await weth.balanceOf(myAccount.address);
@@ -592,7 +596,7 @@ describe("DeltaNeutralDollar", function() {
     // force balance less than debt
     await weth.transfer(await deltaNeutralDollar.getAddress(), diff);
 
-    await deltaNeutralDollar.connect(ownerAccount).closePosition();
+    await expect(deltaNeutralDollar.connect(ownerAccount).closePosition()).to.emit(deltaNeutralDollar, 'PositionClose');
 
     await weth.transfer(await deltaNeutralDollar.getAddress(), ONE_ETHER / 2n);
 

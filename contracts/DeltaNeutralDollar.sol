@@ -79,6 +79,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     // 8 bits left here
 
     event PositionChange(uint256 ethBalance, uint256 totalCollateralBase, uint256 totalDebtBase, int256 collateralChangeBase, int256 debtChangeBase);
+    event PositionClose(uint256 finalEthBalance);
 
     event Withdraw(uint256 amountBase, uint256 amountEth, uint256 amountStable);
     event Deposit(uint256 amountBase, uint256 amountEth);
@@ -138,19 +139,12 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         (, , address variableDebtTokenAddress) = poolDataProvider().getReserveTokensAddresses(address(ethToken));
 
         uint256 debtEth = SafeTransferLib.balanceOf(variableDebtTokenAddress, address(this));
-
-        // FIXME emit closePosition
-
-        if (debtEth == 0) {
-            collateralWithdraw(type(uint).max);
-            approveAndSwap(stableToken, ethToken, SafeTransferLib.balanceOf(address(stableToken), address(this)));
-            return;
-        }
-
         uint256 balanceEth = SafeTransferLib.balanceOf(address(ethToken), address(this));
 
-        if (balanceEth >= debtEth) {
-            debtRepay(type(uint256).max);
+        if (balanceEth >= debtEth) { // even if debtEth and/or balanceEth == 0
+            if (debtEth > 0) {
+                debtRepay(type(uint256).max); // FIXME CHECK IF CHECK NEEDED
+            }
             collateralWithdraw(type(uint).max);
             approveAndSwap(stableToken, ethToken, SafeTransferLib.balanceOf(address(stableToken), address(this)));
 
@@ -166,6 +160,8 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             bytes memory userData = abi.encode(FLASH_LOAN_MODE_CLOSE_POSITION);
             balancerVault.flashLoan(IFlashLoanRecipient(this), tokens, amounts, userData);
         }
+
+        emit PositionClose(SafeTransferLib.balanceOf(address(ethToken), address(this)));
     }
 
     function calculateRequiredPositionChange() public view returns (int256 collateralChangeBase, int256 debtChangeBase) {
@@ -232,8 +228,6 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             return;
         }
 
-        emit PositionChange(SafeTransferLib.balanceOf(address(ethToken), address(this)), totalCollateralBase, totalDebtBase, collateralChangeBase, debtChangeBase);
-
         // FIXME explain all these cases
         if (collateralChangeBase > 0 && debtChangeBase > 0) {
             // console.log("==> Supply collateral then borrow debt");
@@ -274,6 +268,14 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         } else {
             revert(ERROR_IMPOSSIBLE_MODE);
         }
+
+        emit PositionChange(
+            SafeTransferLib.balanceOf(address(ethToken), address(this)),
+            totalCollateralBase,
+            totalDebtBase,
+            collateralChangeBase,
+            debtChangeBase
+        );
     }
 
     function implementSupply(uint256 supplyCollateralBase, uint256 ethPrice) internal {
@@ -465,9 +467,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 minted = MathUpgradeable.mulDiv(totalSupply(), totalBalanceAddedPercent, 10e18);
         assert(minted > 0);
 
-        emit Deposit(minted, amountEth);
-
         _mint(msg.sender, minted);
+
+        emit Deposit(minted, amountEth);
     }
 
     function withdraw(uint256 amount, bool shouldSwapToStable) public whenNotPaused(FLAGS_WITHDRAW_PAUSED) {
@@ -496,9 +498,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             SafeTransferLib.safeTransfer(address(ethToken), msg.sender, amountEth);
         }
 
-        emit Withdraw(amount, amountEth, amountStable);
-
         _rebalance(false);
+
+        emit Withdraw(amount, amountEth, amountStable);
     }
 
     function totalBalance() public view returns (uint256) {
