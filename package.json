@@ -1,0 +1,32 @@
+{
+  "private": true,
+  "name": "dnd-contracts-v1",
+  "version": "0.0.0",
+  "repository": {
+    "url": "https://github.com/ariadne-finance/dnd-contracts-v1.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ariadne-finance/dnd-contracts-v1/issues"
+  },
+  "scripts": {
+    "lint": "solhint `find contracts -type f -name *sol`"
+  },
+  "dependencies": {
+    "@aave/core-v3": "^1.18.0",
+    "@balancer-labs/v2-interfaces": "^0.4.0",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
+    "@openzeppelin/contracts-upgradeable": "^4.9.3",
+    "@openzeppelin/hardhat-upgrades": "^2.0.2",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "@uniswap/v3-periphery": "^1.4.3",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.6.7",
+    "hardhat": "^2.17.0",
+    "hardhat-abi-exporter": "^2.10.1",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-deploy": "^0.11.34",
+    "solady": "^0.0.111",
+    "solhint": "^3.4.1"
+  }
+}
