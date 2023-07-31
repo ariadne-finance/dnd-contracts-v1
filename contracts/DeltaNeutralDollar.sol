@@ -1,4 +1,4 @@
-/* solhint-disable no-inline-assembly, no-console */
+/* solhint-disable no-inline-assembly */
 pragma solidity ^0.8.19;
 
 import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
