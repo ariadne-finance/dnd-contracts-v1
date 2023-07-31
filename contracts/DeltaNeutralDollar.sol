@@ -326,7 +326,6 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         uint256 flashLoanStable = collateralStable * 4;
 
-        // uint256 usdcPosition =  convertBaseToStable(collateralChangeBase, stablePrice); - usdcFlashLoan;
         uint256 positionStable = collateralStable * 5;
 
         uint256 borrowDebtEth = convertBaseToEth(borrowDebtBase, ethPrice);
