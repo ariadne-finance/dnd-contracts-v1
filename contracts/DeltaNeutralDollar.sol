@@ -171,7 +171,14 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         return _calculateRequiredPositionChange(totalCollateralBase, totalDebtBase, ethPrice);
     }
 
-    function _calculateRequiredPositionChange(uint256 totalCollateralBase, uint256 totalDebtBase, uint256 ethPrice) internal view returns (int256 collateralChangeBase, int256 debtChangeBase) {
+    function _calculateRequiredPositionChange(uint256 totalCollateralBase, uint256 totalDebtBase, uint256 ethPrice)
+        internal
+        view
+        returns (
+            int256 collateralChangeBase,
+            int256 debtChangeBase
+        )
+    {
         uint256 balanceBase = convertEthToBase(SafeTransferLib.balanceOf(address(ethToken), address(this)), ethPrice);
         uint256 totalAssetsBase = totalCollateralBase - totalDebtBase + balanceBase;
 
