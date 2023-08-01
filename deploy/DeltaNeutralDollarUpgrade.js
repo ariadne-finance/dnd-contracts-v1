@@ -8,6 +8,10 @@ module.exports = async ({ ethers, deployments, upgrades }) => {
   const upgraded = await upgrades.upgradeProxy(params.ADDRESS, DeltaNeutralDollar);
   await upgraded.waitForDeployment();
   console.log('Upgraded at', await upgraded.getAddress());
+
+  const contract = await ethers.getContractAt('DeltaNeutralDollar', await upgraded.getAddress());
+  const implementationAddress = await contract.implementation();
+  console.log("Implementation address", implementationAddress);
 };
 
 module.exports.tags = ['DeltaNeutralDollarUpgrade'];

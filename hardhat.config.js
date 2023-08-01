@@ -8,6 +8,8 @@ require('hardhat-contract-sizer');
 require('solidity-docgen');
 require('@openzeppelin/hardhat-upgrades');
 
+extendEnvironment(require('./utils/deployHelper.js'));
+
 task('proper-verify', "Actually verify contract")
   .addParam('name', "Deployment name")
   .addOptionalParam('contract', 'contracts/Something.sol:Something')
