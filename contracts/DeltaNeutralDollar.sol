@@ -34,8 +34,6 @@ uint8 constant FLAGS_POSITION_CLOSED = 1 << 0;
 uint8 constant FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 uint8 constant FLAGS_WITHDRAW_PAUSED = 1 << 2;
 
-uint16 constant MIN_REBALANCE_PERCENT_MULTIPLIER = 1000;
-
 uint256 constant EXTRACT_LTV_FROM_POOL_CONFIGURATION_DATA_MASK = (1 << 16) - 1;
 
 string constant ERROR_OPERATION_DISABLED_BY_FLAGS = "DND-01";
@@ -57,10 +55,10 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 minEthToDeposit;
         uint256 minAmountToWithdraw;
 
-        uint8 additionalLtvDistancePercent; // multiplied by 10000, so "10" == 1%
+        uint8 additionalLtvDistancePercent; // multiplied by 100, so "300" == 3%
         uint8 positionSizePercent;
         uint8 flags;
-        uint8 minRebalancePercent; // MIN_REBALANCE_PERCENT_MULTIPLIER is a multiplier, so "10" == 1%
+        uint8 minRebalancePercent; // multiplied by 10, so "10" == 1%
     }
 
     Settings public settings;
@@ -184,28 +182,22 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 idealTotalCollateralBase = MathUpgradeable.mulDiv(totalAssetsBase, settings.positionSizePercent, 100);
         idealTotalCollateralBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, 999, 1000); // shave 0.1% to give room
 
-        uint256 idealLtv = ltv() - (settings.additionalLtvDistancePercent * 10);
-        uint256 idealTotalDebtBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, idealLtv, 10000);
-
         // positive means supply; negative: withdraw
         collateralChangeBase = diffBaseAtLeastMinAmountToChangePosition(idealTotalCollateralBase, totalCollateralBase);
 
-        if (
-            collateralChangeBase != 0 &&
-            idealTotalCollateralBase != 0 &&
-            MathUpgradeable.mulDiv(SignedMathUpgradeable.abs(collateralChangeBase), MIN_REBALANCE_PERCENT_MULTIPLIER, idealTotalCollateralBase) < settings.minRebalancePercent
-        ) {
+        uint256 collateralChangePercent = MathUpgradeable.mulDiv(SignedMathUpgradeable.abs(collateralChangeBase), 1000, idealTotalCollateralBase);
+        if (collateralChangePercent < settings.minRebalancePercent) {
             collateralChangeBase = 0;
         }
+
+        uint256 idealLtv = ltv() - (settings.additionalLtvDistancePercent * 10);
+        uint256 idealTotalDebtBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, idealLtv, 10000);
 
         // positive means borrow; negative: repay
         debtChangeBase = diffBaseAtLeastMinAmountToChangePosition(idealTotalDebtBase, totalDebtBase);
 
-        if (
-            debtChangeBase != 0 &&
-            idealTotalDebtBase != 0 &&
-            MathUpgradeable.mulDiv(SignedMathUpgradeable.abs(debtChangeBase), MIN_REBALANCE_PERCENT_MULTIPLIER, idealTotalDebtBase) < settings.minRebalancePercent
-        ) {
+        uint256 debtChangePercent = MathUpgradeable.mulDiv(SignedMathUpgradeable.abs(debtChangeBase), 1000, idealTotalDebtBase);
+        if (debtChangePercent < settings.minRebalancePercent) {
             debtChangeBase = 0;
         }
     }
@@ -236,41 +228,38 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             return;
         }
 
-        // FIXME explain all these cases
         if (collateralChangeBase > 0 && debtChangeBase > 0) {
-            // console.log("==> Supply collateral then borrow debt");
+            // console.log("C00 ==> Supply collateral then borrow debt");
             implementSupplyThenBorrow(SignedMathUpgradeable.abs(collateralChangeBase), SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
 
         } else if (collateralChangeBase < 0 && debtChangeBase < 0) {
-            // console.log("==> Repay debt then withdraw collateral");
+            // console.log("C00 ==> Repay debt then withdraw collateral");
             implementRepayThenWithdraw(SignedMathUpgradeable.abs(collateralChangeBase), SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
 
         } else if (collateralChangeBase > 0 && debtChangeBase < 0) {
-            // console.log("==> Repay debt then supply collateral"); // FIXME not found yet?
-
+            // console.log("C00 ==> Repay debt then supply collateral"); // not found yet
             implementRepay(SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
             implementSupply(SignedMathUpgradeable.abs(collateralChangeBase), ethPrice);
 
         } else if (collateralChangeBase < 0 && debtChangeBase > 0) {
-            // console.log("==> Borrow debt and withdraw collateral"); // FIXME then or and? // not found yet
-
+            // console.log("C00 ==> Borrow debt and withdraw collateral"); // not found yet
             implementWithdraw(SignedMathUpgradeable.abs(collateralChangeBase), oracle().getAssetPrice(address(stableToken)));
             implementBorrow(SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
 
         } else if (collateralChangeBase == 0 && debtChangeBase > 0) {
-            // console.log("==> Just borrow debt");
+            // console.log("C00 ==> Just borrow debt");
             implementBorrow(SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
 
         } else if (collateralChangeBase == 0 && debtChangeBase < 0) {
-            // console.log("==> Just repay debt");
+            // console.log("C00 ==> Just repay debt");
             implementRepay(SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
 
         } else if (collateralChangeBase < 0 && debtChangeBase == 0) {
-            // console.log("==> Just withdraw collateral"); // not found yet
+            // console.log("C00 ==> Just withdraw collateral"); // not found yet
             implementWithdraw(SignedMathUpgradeable.abs(collateralChangeBase), oracle().getAssetPrice(address(stableToken)));
 
         } else if (collateralChangeBase > 0 && debtChangeBase == 0) {
-            // console.log("==> Just supply collateral"); // not found yet
+            // console.log("C00 ==> Just supply collateral"); // not found yet
             implementSupply(SignedMathUpgradeable.abs(collateralChangeBase), ethPrice);
 
         } else {
