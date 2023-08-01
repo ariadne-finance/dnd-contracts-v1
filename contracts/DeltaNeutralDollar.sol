@@ -143,8 +143,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         if (balanceEth >= debtEth) { // even if debtEth and/or balanceEth == 0
             if (debtEth > 0) {
-                debtRepay(type(uint256).max); // FIXME CHECK IF CHECK NEEDED
+                debtRepay(type(uint256).max);
             }
+
             collateralWithdraw(type(uint).max);
             approveAndSwap(stableToken, ethToken, SafeTransferLib.balanceOf(address(stableToken), address(this)));
 
@@ -378,7 +379,10 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     }
 
     function receiveFlashLoanClosePosition(uint256 flashLoanEth) internal {
+        // prior to that in closePosition() we have calculated that debt actually exists,
+        // so it should NOT revert here with NO_DEBT_OF_SELECTED_TYPE
         debtRepay(type(uint256).max);
+
         collateralWithdraw(type(uint).max);
 
         approveAndSwap(stableToken, ethToken, SafeTransferLib.balanceOf(address(stableToken), address(this)));
@@ -518,35 +522,48 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
     function debtRepay(uint256 amount) internal {
         possiblyApprove(ethToken, address(pool()), amount);
+
         pool().repay(address(ethToken), amount, AAVE_INTEREST_RATE_MODE_VARIABLE, address(this));
+
+        SafeTransferLib.safeApprove(address(ethToken), address(pool()), 0);
     }
 
     function collateralSupply(uint256 amount) internal {
         possiblyApprove(stableToken, address(pool()), amount);
+
         pool().supply(address(stableToken), amount, address(this), 0);
         pool().setUserUseReserveAsCollateral(address(stableToken), true);
+
+        SafeTransferLib.safeApprove(address(stableToken), address(pool()), 0);
     }
 
     function collateralWithdraw(uint256 amount) internal {
         pool().withdraw(address(stableToken), amount, address(this));
     }
 
-    function approveAndSwap(IERC20 from, IERC20 to, uint256 amount) internal returns (uint256) {
+    function approveAndSwap(IERC20 from, IERC20 to, uint256 amount) internal returns (uint256 swappedAmount) {
         if (amount == 0) {
             return 0;
         }
 
         possiblyApprove(from, settings.swapHelper, amount);
 
-        return ISwapHelper(settings.swapHelper).swap(address(from), address(to), amount, address(this));
+        swappedAmount = ISwapHelper(settings.swapHelper).swap(address(from), address(to), amount, address(this));
+
+        SafeTransferLib.safeApprove(address(from), settings.swapHelper, 0);
     }
 
     function possiblyApprove(IERC20 token, address spender, uint256 amount) internal {
-        if (token.allowance(address(this), spender) >= amount) {
+        uint256 allowance = token.allowance(address(this), spender);
+
+        if (allowance > 0) {
+            SafeTransferLib.safeApprove(address(token), spender, 0);
+        }
+
+        if (amount == 0 || allowance > amount) {
             return;
         }
 
-        SafeTransferLib.safeApprove(address(token), spender, 0);
         SafeTransferLib.safeApprove(address(token), spender, amount);
     }
 
