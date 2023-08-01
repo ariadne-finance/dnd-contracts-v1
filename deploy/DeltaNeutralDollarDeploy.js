@@ -17,7 +17,8 @@ module.exports = async ({ ethers, deployments, upgrades }) => {
 
       minAmountToChangePositionBase: 17n * 10n ** 8n,
 
-      minEthToDeposit: 10n ** 18n / 100n, // 0.01 ETH
+      minEthToDeposit: 10n ** 18n / 1000n, // 0.001 ETH
+
       minAmountToWithdraw: 10n ** 8n, // 1 DND
 
       additionalLtvDistancePercent: 10,
