@@ -34,7 +34,6 @@ uint8 constant FLAGS_POSITION_CLOSED = 1 << 0;
 uint8 constant FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 uint8 constant FLAGS_WITHDRAW_PAUSED = 1 << 2;
 
-uint16 constant ADDITIONAL_LTV_DISTANCE_PERCENT_MULTIPLIER = 10000;
 uint16 constant MIN_REBALANCE_PERCENT_MULTIPLIER = 1000;
 
 uint256 constant EXTRACT_LTV_FROM_POOL_CONFIGURATION_DATA_MASK = (1 << 16) - 1;
@@ -58,7 +57,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 minEthToDeposit;
         uint256 minAmountToWithdraw;
 
-        uint8 additionalLtvDistancePercent; // ADDITIONAL_LTV_DISTANCE_PERCENT_MULTIPLIER is a multiplier, so "10" == 1%
+        uint8 additionalLtvDistancePercent; // multiplied by 10000, so "10" == 1%
         uint8 positionSizePercent;
         uint8 flags;
         uint8 minRebalancePercent; // MIN_REBALANCE_PERCENT_MULTIPLIER is a multiplier, so "10" == 1%
@@ -185,7 +184,8 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 idealTotalCollateralBase = MathUpgradeable.mulDiv(totalAssetsBase, settings.positionSizePercent, 100);
         idealTotalCollateralBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, 999, 1000); // shave 0.1% to give room
 
-        uint256 idealTotalDebtBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, ltv() - (settings.additionalLtvDistancePercent * 10), ADDITIONAL_LTV_DISTANCE_PERCENT_MULTIPLIER);
+        uint256 idealLtv = ltv() - (settings.additionalLtvDistancePercent * 10);
+        uint256 idealTotalDebtBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, idealLtv, 10000);
 
         // positive means supply; negative: withdraw
         collateralChangeBase = diffBaseAtLeastMinAmountToChangePosition(idealTotalCollateralBase, totalCollateralBase);
