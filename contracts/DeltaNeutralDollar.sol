@@ -176,7 +176,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         uint256 totalAssetsBase = totalCollateralBase - totalDebtBase + balanceBase;
 
         uint256 idealTotalCollateralBase = MathUpgradeable.mulDiv(totalAssetsBase, settings.positionSizePercent, 100);
-        idealTotalCollateralBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, 999, 1000); // shave 0.1% to give room
+        idealTotalCollateralBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, 1000, 1001); // shave 0.1% to give room
 
         uint256 idealTotalDebtBase = MathUpgradeable.mulDiv(idealTotalCollateralBase, ltv() - (settings.additionalLtvDistancePercent * 10), ADDITIONAL_LTV_DISTANCE_PERCENT_MULTIPLIER);
 
