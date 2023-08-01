@@ -45,6 +45,7 @@ string constant ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = "DND-06";
 string constant ERROR_POSITION_CLOSED = "DND-07";
 string constant ERROR_POSITION_UNCHANGED = "DND-08";
 string constant ERROR_IMPOSSIBLE_MODE = "DND-09";
+string constant ERROR_BETA_CAPPED = "DND-10";
 
 /// @title Delta-neutral dollar vault
 
@@ -541,6 +542,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     /// @notice Deposit funds into vault
     /// @param amountEth amount of `ethToken` to deposit
     function deposit(uint256 amountEth) public whenFlagNotSet(FLAGS_DEPOSIT_PAUSED) whenFlagNotSet(FLAGS_POSITION_CLOSED) {
+        require(amountEth <= 2 ether, ERROR_BETA_CAPPED);
         require(amountEth > 0 && amountEth >= settings.minEthToDeposit, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
         uint256 totalBalanceBaseBefore = totalBalanceBase();

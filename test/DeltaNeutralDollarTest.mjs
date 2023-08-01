@@ -25,6 +25,8 @@ const ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = 'DND-06';
 const ERROR_POSITION_CLOSED = 'DND-07';
 const ERROR_POSITION_UNCHANGED = 'DND-08';
 const ERROR_IMPOSSIBLE_MODE = 'DND-09';
+const ERROR_BETA_CAPPED = 'DND-10';
+
 
 describe("DeltaNeutralDollar", function() {
   let snapshot, initialSnapshot;
@@ -539,6 +541,11 @@ describe("DeltaNeutralDollar", function() {
   it("only owner can collect tokens", async () => {
     await deltaNeutralDollar.deposit(ONE_ETHER);
     await expect(deltaNeutralDollar.collectTokens([ await weth.getAddress() ], myAccount.address)).to.be.revertedWith('Ownable: caller is not the owner');
+  });
+
+  it("caps are respected", async () => {
+    await expect(deltaNeutralDollar.deposit(ONE_ETHER * 2n + 1n)).to.be.revertedWith(ERROR_BETA_CAPPED);
+    await expect(deltaNeutralDollar.deposit(1n)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
   });
 
   it("cannot deposit when flags disabled", async () => {
