@@ -10,8 +10,8 @@ const expect = chai.expect;
 
 const ADDRESSES_PROVIDER = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'; // optimism and arbitrum
 
-const WETH_OPTIMISM = '0x4200000000000000000000000000000000000006'; // WETH, optimism
-const WSTETH_ARBITRUM = '0x5979D7b546E38E414F7E9822514be443A4800529'; // wstETH, arbitrum
+const WSTETH_OPTIMISM = '0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb';
+const WSTETH_ARBITRUM = '0x5979D7b546E38E414F7E9822514be443A4800529';
 
 const FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 const FLAGS_WITHDRAW_PAUSED = 1 << 2;
@@ -47,11 +47,11 @@ describe("DeltaNeutralDollar", function() {
   let usdcAToken;
 
   before(async () => {
-    const optimismWethCode = await ethers.provider.getCode(WETH_OPTIMISM);
+    const optimismWethCode = await ethers.provider.getCode(WSTETH_OPTIMISM);
     isOptimism = optimismWethCode.length > 2;
     console.log("Running on", isOptimism ? "optimism" : "arbitrum");
 
-    WETH = isOptimism ? WETH_OPTIMISM : WSTETH_ARBITRUM;
+    WETH = isOptimism ? WSTETH_OPTIMISM : WSTETH_ARBITRUM;
 
     initialSnapshot = await takeSnapshot();
 
@@ -107,18 +107,13 @@ describe("DeltaNeutralDollar", function() {
 
     usdc = await ethers.getContractAt('IERC20MetadataUpgradeable', await deltaNeutralDollar.stableToken());
 
-    if (isOptimism) {
-      weth = await ethers.getContractAt('IERC20MetadataUpgradeable', await deltaNeutralDollar.ethToken());
+    const abi = JSON.parse(fs.readFileSync('./test/WETHArbitrum.json'));
+    weth = new ethers.Contract(await deltaNeutralDollar.ethToken(), abi, myAccount);
 
-    } else {
-      const abi = JSON.parse(fs.readFileSync('./test/WETHArbitrum.json'));
-      weth = new ethers.Contract(await deltaNeutralDollar.ethToken(), abi, myAccount);
+    const bridge = await weth.bridge();
 
-      const bridge = await weth.bridge();
-
-      impersonatorWethBridge = await ethers.getImpersonatedSigner(bridge);
-      await setBalance(impersonatorWethBridge.address, ONE_ETHER);
-    }
+    impersonatorWethBridge = await ethers.getImpersonatedSigner(bridge);
+    await setBalance(impersonatorWethBridge.address, ONE_ETHER);
 
     pool = await ethers.getContractAt('IPool', await addressProvider.getPool());
 
@@ -189,13 +184,6 @@ describe("DeltaNeutralDollar", function() {
   });
 
   async function getEth(account, amount) {
-    if (isOptimism) {
-      return await account.sendTransaction({
-        to: await weth.getAddress(),
-        value: amount
-      });
-    }
-
     return await weth.connect(impersonatorWethBridge).bridgeMint(account.address, amount);
   }
 
@@ -778,7 +766,7 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("open position with real swap", async () => {
-    const SwapHelper = await ethers.getContractFactory(isOptimism ? 'SwapHelperOptimisticEthereum' : 'SwapHelperArbitrumOneUniswapV3');
+    const SwapHelper = await ethers.getContractFactory(isOptimism ? 'SwapHelperOptimisticEthereumUniswapV3' : 'SwapHelperArbitrumOneUniswapV3');
     const swapHelper = await SwapHelper.deploy();
     await swapHelper.waitForDeployment();
 
