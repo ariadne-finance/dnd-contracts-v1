@@ -5,6 +5,7 @@ require('@nomiclabs/hardhat-etherscan');
 require('hardhat-deploy');
 require('hardhat-abi-exporter');
 require('hardhat-contract-sizer');
+require('solidity-docgen');
 require('@openzeppelin/hardhat-upgrades');
 
 task('proper-verify', "Actually verify contract")
@@ -79,5 +80,9 @@ module.exports = {
     flat: true,
     spacing: 2,
     pretty: false
+  },
+
+  docgen: {
+    pages: 'files'
   }
 };

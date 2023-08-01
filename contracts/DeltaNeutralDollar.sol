@@ -46,27 +46,52 @@ string constant ERROR_POSITION_CLOSED = "DND-07";
 string constant ERROR_POSITION_UNCHANGED = "DND-08";
 string constant ERROR_IMPOSSIBLE_MODE = "DND-09";
 
+/// @title Delta-neutral dollar vault
+
 contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
+    /// @notice Settings are documented in the code
     struct Settings {
+        /// @notice Address of the contract that implements asset swapping functionality.
         address swapHelper;
 
+        /// @notice The minimum threshold of debt or collateral difference between the current position and the ideal calculated
+        /// position that triggers an actual position change. Any changes below this threshold are disregarded.
+        /// Note that this value is denominated in Aave's base currency.
         uint256 minAmountToChangePositionBase;
 
+        /// @notice The minimum amount of Ethereum to deposit.
         uint256 minEthToDeposit;
+
+        /// @notice The minimum amount of DND tokens to withdraw.
         uint256 minAmountToWithdraw;
 
-        uint8 additionalLtvDistancePercent; // multiplied by 100, so "300" == 3%
+        /// @notice The desirable distance to the LTV utilized when calculating position size.
+        /// This is typically set to around 1%, i.e., if Aave's LTV is 80%, we aim to maintain our position at 79%.
+        /// Note that this value needs to be multiplied by a factor of 100. For instance, "250" stands for 2.5%.
+        uint8 additionalLtvDistancePercent;
+
+        /// @notice The intended size of the position to maintain in Aave. It is usually set to 100.
         uint8 positionSizePercent;
+
+        /// @notice Binary settings for the smart contract, as specified by the FLAGS_* constants.
         uint8 flags;
-        uint8 minRebalancePercent; // multiplied by 10, so "10" == 1%
+
+        /// @notice The minimum threshold of debt or collateral difference between the current position and the
+        /// ideal calculated position that triggers an execution. Changes below this are disregarded.
+        /// Note that this value is set as a percentage and needs to be multiplied by 10. Therefore, "10" equates to 1%.
+        uint8 minRebalancePercent;
     }
 
+    /// @notice actual contract settings
     Settings public settings;
 
     IPoolAddressesProvider private aaveAddressProvider;
     IVault private balancerVault;
 
+    /// @notice Address of the stable token used as collateral in Aave by this contract.
     IERC20 public stableToken;
+
+    /// @notice Address of the ETH ERC-20 token accepted by this contract. Usually it is a staked ETH.
     IERC20 public ethToken;
 
     uint8 private _decimals;
@@ -75,12 +100,50 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     uint8 private ethTokenDecimals;
     // 8 bits left here
 
+    /// @notice Event triggered post-execution of position change by deposit, withdrawal or direct execution of the `rebalance()` function.
+    /// @param ethBalance Post-rebalance balance of `ethToken`
+    /// @param totalCollateralBase Aggregate collateral in Aave's base currency
+    /// @param totalDebtBase Aggregate debt in Aave's base currency
+    /// @param collateralChangeBase Net collateral change post-rebalance.
+    /// Negative value implies collateral withdrawal, positive value implies collateral deposit.
+    /// @param debtChangeBase Net debt change post-rebalance.
+    /// Negative value indicates debt repayment, positive value indicates additional borrowing.
     event PositionChange(uint256 ethBalance, uint256 totalCollateralBase, uint256 totalDebtBase, int256 collateralChangeBase, int256 debtChangeBase);
+
+    /// @notice Emitted after a position has been closed
+    /// @param finalEthBalance The final balance in `ethToken` after closing the position
     event PositionClose(uint256 finalEthBalance);
 
-    event Withdraw(uint256 amountBase, uint256 amountEth, uint256 amountStable);
-    event Deposit(uint256 amountBase, uint256 amountEth);
+    /// @notice Emitted on withdrawal
+    /// @param amount how much DND has been burned
+    /// @param amountBase how much has been withdrawn denominated in Aave base currency
+    /// @param amountEth how much actual `ethToken` has been withdrawn from position
+    /// @param amountStable how much `stableToken` has been transfered to user after swap of `amountEth` to `stableToken`.
+    /// Note: this can be 0 if user decided to withdraw in `ethToken`
 
+    /// @notice This event is emitted when a withdrawal takes place
+    /// @param amountBase The amount that has been withdrawn denoted in Aave's base currency. This is for reference only
+    /// as no actual transfers of Aave base currency ever happens
+    /// @param amountEth The actual amnount of `ethToken` that has been withdrawn from the position
+    /// @param amountStable The quantity of `stableToken` transferred to the user post the swap from `amountEth` to `stableToken`.
+    /// Please note: This may amount to 0 if the user chose to withdraw in `ethToken` instead
+    event PositionWithdraw(uint256 amountBase, uint256 amountEth, uint256 amountStable);
+
+    /// @notice This event is emitted when a deposit takes place
+    /// @param amountBase The amount that has been deposited denoted in Aave's base currency. This is for reference only
+    /// as no actual transfers of Aave base currency ever happens
+    /// @param amountEth The actual amnount of `ethToken` that has been deposited into the position
+    event PositionDeposit(uint256 amountBase, uint256 amountEth);
+
+    /// @notice Actual constructor of this upgradeable contract
+    /// @param __decimals `decimals` for this contract's ERC20 properties. Should be equal to Aave base currency decimals, which is 8.
+    /// @param symbol `symbol` for this contract's ERC20 properties. Typically it's DND.
+    /// @param name `name` for this contract's ERC20 properties.
+    /// @param _stableToken Address of the stable token used as collateral in Aave by this contract.
+    /// @param _ethToken Address of the ETH ERC-20 token accepted by this contract. Usually it is a staked ETH.
+    /// @param _balancerVault The contract address of the Balancer's Vault, necessary for executing flash loans.
+    /// @param _aaveAddressProvider The address of the Aave's ADDRESS_PROVIDER.
+    /// @param _settings Actual settings. See `Settings` structure in code.
     function initialize(
         uint8 __decimals,
         string memory symbol,
@@ -116,11 +179,13 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    /// @notice Retrieves the contract's current implementation address
+    /// @return The address of the active contract implementation
     function implementation() public view returns (address) {
         return _getImplementation();
     }
 
-    modifier whenNotPaused(uint8 whatExactly) {
+    modifier whenFlagNotSet(uint8 whatExactly) {
         require((settings.flags & whatExactly) != whatExactly, ERROR_OPERATION_DISABLED_BY_FLAGS);
         _;
     }
@@ -130,7 +195,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         _;
     }
 
-    function closePosition() public whenNotPaused(FLAGS_POSITION_CLOSED) onlyOwner {
+    /// @notice Closes the entire position, repaying all debt, withdrawing all collateral from Aave and deactivating the contract.
+    /// Only accessible by the contract owner when the position hasn't been already closed.
+    function closePosition() public whenFlagNotSet(FLAGS_POSITION_CLOSED) onlyOwner {
         settings.flags = settings.flags | FLAGS_POSITION_CLOSED;
 
         (, , address variableDebtTokenAddress) = poolDataProvider().getReserveTokensAddresses(address(ethToken));
@@ -162,6 +229,15 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         emit PositionClose(SafeTransferLib.balanceOf(address(ethToken), address(this)));
     }
 
+    /// @notice Calculates the required changes in collateral and debt in Aave, given the current prices of `stableToken` and `ethToken`,
+    /// total debt and collateral, and the amount of `ethToken` on balance.
+    /// @return collateralChangeBase The amount by which the collateral should adjust.
+    /// A negative value implies that collateral should be withdrawn; positive value indicates that more collateral is to be supplied.
+    /// Note: amount is denoted in Aave base currency.
+    /// @return debtChangeBase The amount by which the debt should adjust.
+    /// A negative value indicates debt repayment should occur; positive value indicates that more debt should be borrowed.
+    /// Note: amount is denoted in Aave base currency.
+    /// @dev This is a public facing implementation, a read-only method to see if there's any change pending.
     function calculateRequiredPositionChange() public view returns (int256 collateralChangeBase, int256 debtChangeBase) {
         uint256 ethPrice = oracle().getAssetPrice(address(ethToken));
         (uint256 totalCollateralBase, uint256 totalDebtBase, , , , ) = pool().getUserAccountData(address(this));
@@ -202,6 +278,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         }
     }
 
+    /// @notice Do `calculateRequiredPositionChange()` and actually rebalance the position if changes are pending.
+    /// This method reverts with `ERROR_POSITION_UNCHANGED` if the position stays the same or if the changes are too small
+    /// and not worth executing.
     function rebalance() public {
         _rebalance(true);
     }
@@ -265,6 +344,8 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         } else {
             revert(ERROR_IMPOSSIBLE_MODE);
         }
+
+        (totalCollateralBase, totalDebtBase, , , , ) = pool().getUserAccountData(address(this));
 
         emit PositionChange(
             SafeTransferLib.balanceOf(address(ethToken), address(this)),
@@ -399,7 +480,15 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         SafeTransferLib.safeTransfer(address(ethToken), address(balancerVault), flashLoanEth);
     }
 
-    function receiveFlashLoan(IERC20[] memory tokens, uint256[] memory amounts, uint256[] memory feeAmounts, bytes memory userData) external onlyBalancerVault  { // solhint-disable-line no-unused-vars
+    function receiveFlashLoan(
+        IERC20[] memory tokens,
+        uint256[] memory amounts,
+        uint256[] memory feeAmounts, // solhint-disable-line no-unused-vars
+        bytes memory userData
+    )
+        external
+        onlyBalancerVault
+    {
         (uint8 mode) = abi.decode(userData, (uint8));
 
         if (mode == FLASH_LOAN_MODE_REBALANCE_SUPPLY_AND_BORROW) {
@@ -439,25 +528,31 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         SafeTransferLib.safeTransferAll(tokenAddress, to);
     }
 
+    /// @notice Allows the contract owner to recover misplaced tokens.
+    /// The function can only be invoked by the contract owner.
+    /// @param tokens An array of token contract addresses from which tokens will be collected.
+    /// @param to The recipient address where all retrieved tokens will be transferred.
     function collectTokens(address[] memory tokens, address to) public onlyOwner {
         for (uint i=0; i<tokens.length; i++) {
             _collect(tokens[i], to);
         }
     }
 
-    function deposit(uint256 amountEth) public whenNotPaused(FLAGS_DEPOSIT_PAUSED) whenNotPaused(FLAGS_POSITION_CLOSED) {
+    /// @notice Deposit funds into vault
+    /// @param amountEth amount of `ethToken` to deposit
+    function deposit(uint256 amountEth) public whenFlagNotSet(FLAGS_DEPOSIT_PAUSED) whenFlagNotSet(FLAGS_POSITION_CLOSED) {
         require(amountEth > 0 && amountEth >= settings.minEthToDeposit, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
-        uint256 totalBalanceBaseBefore = totalBalance();
+        uint256 totalBalanceBaseBefore = totalBalanceBase();
 
         SafeTransferLib.safeTransferFrom(address(ethToken), msg.sender, address(this), amountEth);
         _rebalance(false);
 
-        uint256 totalBalanceBaseAfter = totalBalance();
+        uint256 totalBalanceBaseAfter = totalBalanceBase();
 
         if (totalSupply() == 0) {
-            emit Deposit(totalBalanceBaseAfter, amountEth);
             _mint(msg.sender, totalBalanceBaseAfter);
+            emit PositionDeposit(totalBalanceBaseAfter, amountEth);
             return;
         }
 
@@ -468,10 +563,16 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         _mint(msg.sender, minted);
 
-        emit Deposit(minted, amountEth);
+        emit PositionDeposit(totalBalanceBaseAfter - totalBalanceBaseBefore, amountEth);
     }
 
-    function withdraw(uint256 amount, bool shouldSwapToStable) public whenNotPaused(FLAGS_WITHDRAW_PAUSED) {
+    /// @notice Withdraw from vault
+    /// @param amount The amount of DND to be withdrawn
+    /// @param shouldSwapToStable Determines whether the `ethToken` equivalent of the withdrawn amount should be swapped to `stableToken` before transfer to the user,
+    /// or transferred as `ethToken` directly without any swap.
+    /// If set true, `ethToken` is swapped to `stableToken` prior to transfer.
+    /// If false, the required amount is withdrawn as `ethToken` directly with no swap.
+    function withdraw(uint256 amount, bool shouldSwapToStable) public whenFlagNotSet(FLAGS_WITHDRAW_PAUSED) {
         require(amount > 0 && amount >= settings.minAmountToWithdraw, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
         uint256 percent = MathUpgradeable.mulDiv(amount, 10e18, totalSupply());
@@ -479,7 +580,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         _burn(msg.sender, amount);
 
-        uint256 amountBase = MathUpgradeable.mulDiv(totalBalance(), percent, 10e18);
+        uint256 amountBase = MathUpgradeable.mulDiv(totalBalanceBase(), percent, 10e18);
         assert(amountBase > 0);
 
         uint256 ethPrice = oracle().getAssetPrice(address(ethToken));
@@ -499,10 +600,12 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         _rebalance(false);
 
-        emit Withdraw(amount, amountEth, amountStable);
+        emit PositionWithdraw(amountBase, amountEth, amountStable);
     }
 
-    function totalBalance() public view returns (uint256) {
+    /// @notice Returns the Total Value Locked (TVL) in the Vault
+    /// @return The TVL represented in Aave's base currency
+    function totalBalanceBase() public view returns (uint256) {
         (uint256 totalCollateralBase, uint256 totalDebtBase, , , ,) = pool().getUserAccountData(address(this));
         uint256 netBase = totalCollateralBase - totalDebtBase;
 
@@ -596,6 +699,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     }
     */
 
+    /// @notice Update contract's `settings`. Method is only available to owner.
     function setSettings(Settings calldata _settings) public onlyOwner {
         settings = _settings;
     }
@@ -617,6 +721,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         return IAaveOracle(aaveAddressProvider.getPriceOracle());
     }
 
+    /// @notice ERC20 method
     function decimals() public view virtual override returns (uint8) {
         return _decimals;
     }

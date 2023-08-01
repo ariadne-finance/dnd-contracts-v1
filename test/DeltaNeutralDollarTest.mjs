@@ -306,7 +306,7 @@ describe("DeltaNeutralDollar", function() {
     await deltaNeutralDollar.deposit(ONE_ETHER);
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
@@ -364,7 +364,7 @@ describe("DeltaNeutralDollar", function() {
 
     await deltaNeutralDollar.rebalance();
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice, 1);
   });
 
   it("eth price down 2x stepwise", async () => {
@@ -410,7 +410,7 @@ describe("DeltaNeutralDollar", function() {
     await deltaNeutralDollar.deposit(ONE_ETHER);
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice * 2n, 2);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(wethPrice * 2n, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 2n, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
@@ -431,7 +431,7 @@ describe("DeltaNeutralDollar", function() {
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(expectedBalanceBase, 1);
 
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(expectedBalanceBase, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(expectedBalanceBase, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
@@ -451,7 +451,7 @@ describe("DeltaNeutralDollar", function() {
 
     // about 79% has been withdrawn, so 21% must be left.
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2);
     expect(await deltaNeutralDollar.totalSupply()).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2); // because for a single user it's the same as totalBalance
     expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 79n, 2);
   });
@@ -484,9 +484,14 @@ describe("DeltaNeutralDollar", function() {
       return x >= quarter / 100n * 98n && x <= quarter / 100n * 102n;
     }
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, true)).to.emit(deltaNeutralDollar, 'Withdraw').withArgs(myBalanceBefore / 4n, quarterOfEth, quarterOfEthInStable);
+    function quarterOfBalance(x) {
+      const referenceValue = myBalanceBefore / 4n;
+      return x >= referenceValue / 100n * 98n && x <= referenceValue / 100n * 102n;
+    }
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false)).to.emit(deltaNeutralDollar, 'Withdraw').withArgs(myBalanceBefore / 4n, quarterOfEth, 0);
+    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, true)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, quarterOfEthInStable);
+
+    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, 0);
   });
 
   it("deposit must emit events", async () => {
@@ -494,7 +499,7 @@ describe("DeltaNeutralDollar", function() {
       return x >= (wethPrice / 100n * 98n) && x <= (wethPrice / 100n * 102n);
     }
 
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.emit(deltaNeutralDollar, 'Deposit').withArgs(correctBaseAmount, ONE_ETHER);
+    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.emit(deltaNeutralDollar, 'PositionDeposit').withArgs(correctBaseAmount, ONE_ETHER);
   });
 
   it("transfer tokens", async () => {
@@ -666,7 +671,7 @@ describe("DeltaNeutralDollar", function() {
     expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER, 1.1);
 
     expect(await deltaNeutralDollar.totalSupply()).to.be.eq(0);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(0, 0.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(0, 0.1);
   });
 
   it("usdc price down", async () => {
@@ -716,7 +721,7 @@ describe("DeltaNeutralDollar", function() {
     await weth.transfer(liquidatorAccount.address, await weth.balanceOf(myAccount.address));
 
     const baseBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    const totalBalanceBefore = await deltaNeutralDollar.totalBalance();
+    const totalBalanceBefore = await deltaNeutralDollar.totalBalanceBase();
 
     const higherWethPrice = wethPrice / 100n * 108n;
 
@@ -725,7 +730,7 @@ describe("DeltaNeutralDollar", function() {
     expect(await liquidate(await deltaNeutralDollar.getAddress(), usdc, weth)).to.be.true;
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(baseBalanceBefore, 1);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(totalBalanceBefore / 100n * 98n, 1); // two percent liquidation hit
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(totalBalanceBefore / 100n * 98n, 1); // two percent liquidation hit
 
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
@@ -749,7 +754,7 @@ describe("DeltaNeutralDollar", function() {
 
     expect(myBalanceAfterDeposit).to.be.withinPercent(wethPrice, 1.1);
     expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wethPrice * 2n, 1.1);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(wethPrice * 3n, 1.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 3n, 1.1);
 
     const totalSupplyBefore = await deltaNeutralDollar.totalSupply();
     expect(totalSupplyBefore).to.be.withinPercent(wethPrice * 3n, 1.1);
@@ -759,7 +764,7 @@ describe("DeltaNeutralDollar", function() {
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.eq(myBalanceAfterDeposit);
     expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wethPrice * 2n, 1.1);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(wethPrice * 3n, 1.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 3n, 1.1);
     expect(await deltaNeutralDollar.totalSupply()).to.be.eq(totalSupplyBefore);
 
     await deltaNeutralDollar.withdraw(myBalanceAfterDeposit, false);
@@ -768,7 +773,7 @@ describe("DeltaNeutralDollar", function() {
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.eq(0);
     expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wethPrice * 2n, 1.1);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(wethPrice * 2n, 1.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 2n, 1.1);
     expect(await deltaNeutralDollar.totalSupply()).to.be.withinPercent(totalSupplyBefore / 3n * 2n, 1.1);
   });
 
@@ -787,7 +792,7 @@ describe("DeltaNeutralDollar", function() {
     await deltaNeutralDollar.deposit(ONE_ETHER);
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPriceReal, 1);
-    expect(await deltaNeutralDollar.totalBalance()).to.be.withinPercent(wethPriceReal, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPriceReal, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
