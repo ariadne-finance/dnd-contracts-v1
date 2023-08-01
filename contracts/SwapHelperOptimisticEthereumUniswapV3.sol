@@ -21,7 +21,7 @@ contract SwapHelperOptimisticEthereumUniswapV3 is ISwapHelper {
         override
         returns (uint256)
     {
-        return amount * 3 / 1000;
+        return amount * 4 / 1000;
     }
 
     function swap(address from, address to, uint256 amount, address recipient)
