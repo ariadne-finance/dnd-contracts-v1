@@ -661,7 +661,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             SafeTransferLib.safeApprove(address(token), spender, 0);
         }
 
-        if (amount == 0 || allowance > amount) {
+        if (amount == 0) {
             return;
         }
 
