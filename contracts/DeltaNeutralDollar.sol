@@ -326,6 +326,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             implementWithdraw(SignedMathUpgradeable.abs(collateralChangeBase), oracle().getAssetPrice(address(stableToken)));
             implementBorrow(SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
 
+
+        // the below happens when minAmountToChangePositionBase has been triggered only on either debt or collateral
+
         } else if (collateralChangeBase == 0 && debtChangeBase > 0) {
             // console.log("C00 ==> Just borrow debt");
             implementBorrow(SignedMathUpgradeable.abs(debtChangeBase), ethPrice);
