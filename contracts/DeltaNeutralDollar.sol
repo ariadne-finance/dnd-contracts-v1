@@ -54,7 +54,7 @@ string constant ERROR_ONLY_STABLES_ARE_BRIDGED = "DND-11";
 // arbitrum 0xEE9deC2712cCE65174B561151701Bf54b99C24C8
 // optimism 0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA
 
-address constant CONNEXT = address(0xEE9deC2712cCE65174B561151701Bf54b99C24C8);
+address constant CONNEXT = address(0);
 
 /// @title Delta-neutral dollar vault
 
