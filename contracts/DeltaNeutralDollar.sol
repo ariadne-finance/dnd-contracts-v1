@@ -580,8 +580,14 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         emit PositionDeposit(totalBalanceBaseAfter - totalBalanceBaseBefore, amountEth);
     }
 
-    /// @notice Withdraw from vault
+    /// @notice Withdraw from vault either in `ethToken` or `stableToken` and optionally bridge `stableToken` to another network via Connext
     /// @param amount The amount of DND to be withdrawn
+    /// @param shouldSwapToStableToken Determines whether the `ethToken` equivalent of the withdrawn amount should be swapped to `stableToken` before transfer to the user,
+    /// or transferred as `ethToken` directly without any swap.
+    /// If set true, `ethToken` is swapped to `stableToken` prior to transfer.
+    /// If false, the required amount is withdrawn as `ethToken` directly with no swap.
+    /// @param destinationDomain Connext destinationDomain. Pass `0` to not bridge.
+    /// @param relayerFee Connext relayerFee. Pass `0` to not bridge.
     function withdraw(uint256 amount, bool shouldSwapToStableToken, uint32 destinationDomain, uint256 relayerFee) public payable whenFlagNotSet(FLAGS_WITHDRAW_PAUSED) {
         require((shouldSwapToStableToken == true) || (shouldSwapToStableToken == false && destinationDomain == 0), ERROR_ONLY_STABLES_ARE_BRIDGED);
 
