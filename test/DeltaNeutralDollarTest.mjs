@@ -515,7 +515,7 @@ describe("DeltaNeutralDollar", function() {
     const secondBalanceBefore = await deltaNeutralDollar.balanceOf(secondAccount.address);
     expect(secondBalanceBefore).to.be.withinPercent(wethPrice, 1.1);
 
-    await expect(deltaNeutralDollar.withdraw(1000000000, false, 0, 0)).to.be.revertedWith('ERC20: burn amount exceeds balance');
+    await expect(deltaNeutralDollar.withdraw(1000000000, false, 0, 0)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
     await deltaNeutralDollar.connect(secondAccount).withdraw(secondBalanceBefore / 2n, false, 0, 0);
 
@@ -525,7 +525,7 @@ describe("DeltaNeutralDollar", function() {
   it("withdraw more than balance", async () => {
     await deltaNeutralDollar.deposit(ONE_ETHER);
     const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await expect(deltaNeutralDollar.withdraw(myBalance + 1n, false, 0, 0)).to.be.revertedWith('ERC20: burn amount exceeds balance');
+    await expect(deltaNeutralDollar.withdraw(myBalance + 1n, false, 0, 0)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
   });
 
   it("only owner can close position", async () => {

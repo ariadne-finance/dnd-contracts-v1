@@ -586,6 +586,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         require((shouldSwapToStableToken == true) || (shouldSwapToStableToken == false && destinationDomain == 0), ERROR_ONLY_STABLES_ARE_BRIDGED);
 
         require(amount > 0 && amount >= settings.minAmountToWithdraw, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+        require(amount <= balanceOf(msg.sender), ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
         uint256 percent = MathUpgradeable.mulDiv(amount, 10e18, totalSupply());
         assert(percent > 0);
