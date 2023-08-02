@@ -6,7 +6,7 @@ module.exports = async ({ ethers, deployments, upgrades }) => {
 
   const args = [
     8,
-    "DNH",
+    "DND",
     "Delta Neutral Dollar",
     params.STABLE_ADDRESS,
     params.ETH_ADDRESS,
