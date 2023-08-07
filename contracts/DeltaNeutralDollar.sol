@@ -50,11 +50,9 @@ string constant ERROR_IMPOSSIBLE_MODE = "DND-09";
 string constant ERROR_BETA_CAPPED = "DND-10";
 string constant ERROR_ONLY_STABLES_ARE_BRIDGED = "DND-11";
 
-// FIXME
-// arbitrum 0xEE9deC2712cCE65174B561151701Bf54b99C24C8
-// optimism 0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA
-
-address constant CONNEXT = address(0);
+address constant CONNEXT = address(0); // should be uncommented in source
+// address constant CONNEXT = address(0xEE9deC2712cCE65174B561151701Bf54b99C24C8); // Arbitrum
+// address constant CONNEXT = address(0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA); // Optimism
 
 /// @title Delta-neutral dollar vault
 
