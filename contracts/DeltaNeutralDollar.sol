@@ -49,10 +49,6 @@ string constant ERROR_IMPOSSIBLE_MODE = "DND-09";
 string constant ERROR_BETA_CAPPED = "DND-10";
 string constant ERROR_ONLY_STABLES_ARE_BRIDGED = "DND-11";
 
-address constant CONNEXT = address(0); // should be uncommented in source
-// address constant CONNEXT = address(0xEE9deC2712cCE65174B561151701Bf54b99C24C8); // Arbitrum
-// address constant CONNEXT = address(0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA); // Optimism
-
 /// @title Delta-neutral dollar vault
 
 contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
@@ -543,7 +539,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     /// @param tokens An array of token contract addresses from which tokens will be collected.
     /// @param to The recipient address where all retrieved tokens will be transferred.
     function collectTokens(address[] memory tokens, address to) public onlyOwner {
-        for (uint i=0; i<tokens.length; i++) {
+        for (uint256 i=0; i<tokens.length; i++) {
             _collect(tokens[i], to);
         }
     }
@@ -577,45 +573,38 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         emit PositionDeposit(totalBalanceBaseAfter - totalBalanceBaseBefore, amountEth);
     }
 
-    /// @notice Withdraw from vault either in `ethToken` or `stableToken` and optionally bridge `stableToken` to another network via Connext
-    /// @param amount The amount of DND to be withdrawn
-    /// @param shouldSwapToStableToken Determines whether the `ethToken` equivalent of the withdrawn amount should be swapped to `stableToken` before transfer to the user,
-    /// or transferred as `ethToken` directly without any swap.
-    /// If set true, `ethToken` is swapped to `stableToken` prior to transfer.
-    /// If false, the required amount is withdrawn as `ethToken` directly with no swap.
-    /// @param destinationDomain Connext destinationDomain. Pass `0` to not bridge.
-    /// @param relayerFee Connext relayerFee. Pass `0` to not bridge.
-    function withdraw(uint256 amount, bool shouldSwapToStableToken, uint32 destinationDomain, uint256 relayerFee) public payable whenFlagNotSet(FLAGS_WITHDRAW_PAUSED) {
-        require((shouldSwapToStableToken == true) || (shouldSwapToStableToken == false && destinationDomain == 0), ERROR_ONLY_STABLES_ARE_BRIDGED);
-
+    function _calculateEthWithdrawAmount(uint256 amount) internal view returns (uint256 amountEth, uint256 amountBase) {
         require(amount > 0 && amount >= settings.minAmountToWithdraw, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
         require(amount <= balanceOf(msg.sender), ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
         uint256 percent = MathUpgradeable.mulDiv(amount, 10e18, totalSupply());
         assert(percent > 0);
 
-        uint256 amountBase = MathUpgradeable.mulDiv(totalBalanceBase(), percent, 10e18);
+        amountBase = MathUpgradeable.mulDiv(totalBalanceBase(), percent, 10e18);
         assert(amountBase > 0);
 
         uint256 ethPrice = oracle().getAssetPrice(address(ethToken));
-        uint256 amountEth = convertBaseToEth(amountBase, ethPrice);
+        amountEth = convertBaseToEth(amountBase, ethPrice);
         assert(amountEth > 0);
 
         require(amountEth <= SafeTransferLib.balanceOf(address(ethToken), address(this)), ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL);
+    }
 
+    /// @notice Withdraw from vault either in `ethToken` or `stableToken`
+    /// @param amount The amount of DND to be withdrawn
+    /// @param shouldSwapToStableToken Determines whether the `ethToken` equivalent of the withdrawn amount should be swapped to `stableToken` before transfer to the user,
+    /// or transferred as `ethToken` directly without any swap.
+    /// If set true, `ethToken` is swapped to `stableToken` prior to transfer.
+    /// If false, the required amount is withdrawn as `ethToken` directly with no swap.
+    function withdraw(uint256 amount, bool shouldSwapToStableToken) public whenFlagNotSet(FLAGS_WITHDRAW_PAUSED) {
+        (uint256 amountEth, uint256 amountBase) = _calculateEthWithdrawAmount(amount);
         _burn(msg.sender, amount);
 
         uint256 amountStable;
 
         if (shouldSwapToStableToken) {
             amountStable = approveAndSwap(ethToken, stableToken, amountEth);
-
-            if (destinationDomain == 0) {
-                SafeTransferLib.safeTransfer(address(stableToken), msg.sender, amountStable);
-
-            } else {
-                _bridge(amountStable, destinationDomain, relayerFee);
-            }
+            SafeTransferLib.safeTransfer(address(stableToken), msg.sender, amountStable);
 
         } else {
             SafeTransferLib.safeTransfer(address(ethToken), msg.sender, amountEth);
@@ -623,25 +612,43 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         _rebalance(false);
 
+        emit PositionWithdraw(amountBase, amountEth, amountStable, 0);
+    }
+
+    /// @notice Withdraw from vault in `stableToken` then bridge to another network via Connext
+    /// @param amount The amount of DND to be withdrawn
+    /// @param connext Connext bridge address
+    /// @param destinationDomain Connext destinationDomain
+    /// @param slippage Connext slippage allowed
+    /// @param relayerFee Connext relayerFee
+    function withdrawX(uint256 amount, address connext, uint32 destinationDomain, uint256 slippage, uint256 relayerFee) public payable whenFlagNotSet(FLAGS_WITHDRAW_PAUSED) {
+        (uint256 amountEth, uint256 amountBase) = _calculateEthWithdrawAmount(amount);
+        _burn(msg.sender, amount);
+
+        uint256 amountStable = approveAndSwap(ethToken, stableToken, amountEth);
+
+        _bridge(connext, amountStable, destinationDomain, slippage, relayerFee);
+
+        _rebalance(false);
+
         emit PositionWithdraw(amountBase, amountEth, amountStable, destinationDomain);
     }
 
-    function _bridge(uint256 amount, uint32 destinationDomain, uint256 relayerFee) internal {
-        possiblyApprove(stableToken, CONNEXT, amount);
+    function _bridge(address connext, uint256 amount, uint32 destinationDomain, uint256 slippage, uint256 relayerFee) internal {
+        possiblyApprove(stableToken, connext, amount);
 
         bytes memory callData;
-        IConnext(CONNEXT).xcall{value: relayerFee}(
-            destinationDomain, // _destination: Domain ID of the destination chain
-            msg.sender,        // _to: address of the target contract
-            address(stableToken),    // _asset: address of the token contract
-            owner(),        // _delegate: address that can revert or forceLocal on destination
-            amount,            // _amount: amount of tokens to transfer
-            // FIXME to config?
-            uint256(100),          // _slippage: max slippage the user will accept in BPS (e.g. 300 = 3%)
-            callData           // _callData: the encoded calldata to send
+        IConnext(connext).xcall{value: relayerFee}(
+            destinationDomain,    // _destination: Domain ID of the destination chain
+            msg.sender,           // _to: address of the target contract
+            address(stableToken), // _asset: address of the token contract
+            owner(),              // _delegate: address that can revert or forceLocal on destination
+            amount,               // _amount: amount of tokens to transfer
+            slippage,             // _slippage: max slippage the user will accept in BPS (e.g. 300 = 3%)
+            callData              // _callData: the encoded calldata to send
         );
 
-        SafeTransferLib.safeApprove(address(stableToken), CONNEXT, 0);
+        SafeTransferLib.safeApprove(address(stableToken), connext, 0);
     }
 
     /// @notice Returns the Total Value Locked (TVL) in the Vault

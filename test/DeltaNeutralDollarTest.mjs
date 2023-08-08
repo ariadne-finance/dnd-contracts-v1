@@ -27,7 +27,6 @@ const ERROR_POSITION_UNCHANGED = 'DND-08';
 const ERROR_IMPOSSIBLE_MODE = 'DND-09';
 const ERROR_BETA_CAPPED = 'DND-10';
 
-
 describe("DeltaNeutralDollar", function() {
   let snapshot, initialSnapshot;
 
@@ -47,11 +46,16 @@ describe("DeltaNeutralDollar", function() {
 
   let wethVariableDebtToken;
   let usdcAToken;
+  let connextAddress;
+  let connextDestinationDomain;
 
   before(async () => {
     const optimismWethCode = await ethers.provider.getCode(WSTETH_OPTIMISM);
     isOptimism = optimismWethCode.length > 2;
     console.log("Running on", isOptimism ? "optimism" : "arbitrum");
+
+    connextAddress = isOptimism ? '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA' : '0xEE9deC2712cCE65174B561151701Bf54b99C24C8';
+    connextDestinationDomain = isOptimism ? 1634886255 : 1869640809;
 
     WETH = isOptimism ? WSTETH_OPTIMISM : WSTETH_ARBITRUM;
 
@@ -434,7 +438,7 @@ describe("DeltaNeutralDollar", function() {
     await weth.transfer(liquidatorAccount.address, await weth.balanceOf(myAccount.address));
 
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalanceBefore / 100n * 79n, false, 0, 0);
+    await deltaNeutralDollar.withdraw(myBalanceBefore / 100n * 79n, false);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
@@ -453,7 +457,7 @@ describe("DeltaNeutralDollar", function() {
     await usdc.transfer(liquidatorAccount.address, await usdc.balanceOf(myAccount.address));
 
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalanceBefore / 2n, true, 0, 0);
+    await deltaNeutralDollar.withdraw(myBalanceBefore / 2n, true);
 
     expect(await usdc.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice / 2n / 10n ** 2n, 2);
   });
@@ -466,7 +470,7 @@ describe("DeltaNeutralDollar", function() {
     await usdc.transfer(liquidatorAccount.address, await usdc.balanceOf(myAccount.address));
 
     const RELAYER_FEE = 10n ** 18n / 100n * 3n;
-    await deltaNeutralDollar.withdraw(myBalanceBefore / 2n, true, 1869640809, RELAYER_FEE, { value: RELAYER_FEE });
+    await deltaNeutralDollar.withdrawX(myBalanceBefore / 2n, connextAddress, connextDestinationDomain, 100, RELAYER_FEE, { value: RELAYER_FEE });
 
     expect(await usdc.balanceOf(myAccount.address)).to.be.eq(0);
   });
@@ -475,7 +479,7 @@ describe("DeltaNeutralDollar", function() {
     await deltaNeutralDollar.deposit(ONE_ETHER);
 
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false, 0, 0);
+    await deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false);
 
     function quarterOfEth(x) {
       const QUARTER = ONE_ETHER / 4n;
@@ -492,9 +496,9 @@ describe("DeltaNeutralDollar", function() {
       return x >= referenceValue / 100n * 98n && x <= referenceValue / 100n * 102n;
     }
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, true, 0, 0)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, quarterOfEthInStable, 0);
+    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, true)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, quarterOfEthInStable, 0);
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false, 0, 0)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, 0, 0);
+    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, 0, 0);
   });
 
   it("deposit must emit events", async () => {
@@ -515,9 +519,9 @@ describe("DeltaNeutralDollar", function() {
     const secondBalanceBefore = await deltaNeutralDollar.balanceOf(secondAccount.address);
     expect(secondBalanceBefore).to.be.withinPercent(wethPrice, 1.1);
 
-    await expect(deltaNeutralDollar.withdraw(1000000000, false, 0, 0)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+    await expect(deltaNeutralDollar.withdraw(1000000000, false)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
-    await deltaNeutralDollar.connect(secondAccount).withdraw(secondBalanceBefore / 2n, false, 0, 0);
+    await deltaNeutralDollar.connect(secondAccount).withdraw(secondBalanceBefore / 2n, false);
 
     expect(await weth.balanceOf(secondAccount.address)).to.be.withinPercent(ONE_ETHER / 2n, 1.1);
   });
@@ -525,7 +529,7 @@ describe("DeltaNeutralDollar", function() {
   it("withdraw more than balance", async () => {
     await deltaNeutralDollar.deposit(ONE_ETHER);
     const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await expect(deltaNeutralDollar.withdraw(myBalance + 1n, false, 0, 0)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+    await expect(deltaNeutralDollar.withdraw(myBalance + 1n, false)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
   });
 
   it("only owner can close position", async () => {
@@ -570,7 +574,7 @@ describe("DeltaNeutralDollar", function() {
 
     await expect(deltaNeutralDollar.deposit(ONE_ETHER / 2n)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
 
-    await deltaNeutralDollar.withdraw(await deltaNeutralDollar.balanceOf(myAccount.address) / 2n, false, 0, 0); // withdraw still allowed
+    await deltaNeutralDollar.withdraw(await deltaNeutralDollar.balanceOf(myAccount.address) / 2n, false); // withdraw still allowed
   });
 
   it("cannot withdraw when flags disabled", async () => {
@@ -580,7 +584,7 @@ describe("DeltaNeutralDollar", function() {
     settings.flags = FLAGS_WITHDRAW_PAUSED;
     await deltaNeutralDollar.connect(ownerAccount).setSettings(settings);
 
-    await expect(deltaNeutralDollar.withdraw(100, false, 0, 0)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
+    await expect(deltaNeutralDollar.withdraw(100, false)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
 
     await deltaNeutralDollar.deposit(ONE_ETHER / 2n); // deposit still allowed
   });
@@ -673,7 +677,7 @@ describe("DeltaNeutralDollar", function() {
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
     const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalance, false, 0, 0);
+    await deltaNeutralDollar.withdraw(myBalance, false);
 
     expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.lt(10000000);
     expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER, 1.1);
@@ -775,7 +779,7 @@ describe("DeltaNeutralDollar", function() {
     expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 3n, 1.1);
     expect(await deltaNeutralDollar.totalSupply()).to.be.eq(totalSupplyBefore);
 
-    await deltaNeutralDollar.withdraw(myBalanceAfterDeposit, false, 0, 0);
+    await deltaNeutralDollar.withdraw(myBalanceAfterDeposit, false);
 
     expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 97n, 1.1);
 
