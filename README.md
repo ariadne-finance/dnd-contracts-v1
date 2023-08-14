@@ -21,3 +21,11 @@ Then run test:
 ```bash
 npx hardhat --network forked test test/DeltaNeutralDollarTest.mjs
 ```
+
+# Linter
+
+We use [solhint](https://protofire.github.io/solhint/).
+
+```bash
+npm run lint
+```
