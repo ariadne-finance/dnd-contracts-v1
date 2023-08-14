@@ -9,7 +9,6 @@ chai.use(withinPercent);
 const expect = chai.expect;
 
 const ADDRESSES_PROVIDER = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'; // optimism, arbitrum and polygon
-
 const BALANCER_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'; // optimism, arbitrum and polygon
 
 const WSTETH_OPTIMISM = '0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb';
@@ -32,6 +31,10 @@ const USDC_SPONSOR_OPTIMISM = '0xEbe80f029b1c02862B9E8a70a7e5317C06F62Cae';
 const USDC_SPONSOR_ARBITRUM = '0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef';
 const USDC_SPONSOR_POLYGON = '0x0639556F03714A74a5fEEaF5736a4A64fF70D206';
 
+const CHAIN_POLYGON = 'polygon';
+const CHAIN_OPTIMISM = 'optimism';
+const CHAIN_ARBITRUM = 'arbitrum';
+
 const FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 const FLAGS_WITHDRAW_PAUSED = 1 << 2;
 
@@ -49,11 +52,14 @@ const ERROR_BETA_CAPPED = 'DND-10';
 describe("DeltaNeutralDollar", function() {
   let snapshot, initialSnapshot;
 
-  let wsteth;
-  let isOptimism;
+  let currentChain;
 
+  let usdcSponsorAddress;
   let myAccount, secondAccount, ownerAccount, swapEmulatorCustodian, liquidatorAccount, impersonatorUsdc, impersonatorWethBridge;
+
+  let wstethAddress, usdcAddress;
   let usdc, weth;
+
   let deltaNeutralDollar;
   let swapHelper;
   let pool;
@@ -68,20 +74,49 @@ describe("DeltaNeutralDollar", function() {
   let connextAddress;
   let connextDestinationDomain;
 
-  before(async () => {
-    const optimismWethCode = await ethers.provider.getCode(WSTETH_OPTIMISM);
-    isOptimism = optimismWethCode.length > 2;
-    console.log("Running on", isOptimism ? "optimism" : "arbitrum");
+  async function detectChain() {
+    const [ optimismWethCode, arbitrumWethCode ] = await Promise.all([
+      ethers.provider.getCode(WSTETH_OPTIMISM),
+      ethers.provider.getCode(WSTETH_ARBITRUM)
+    ]);
 
-    connextAddress = isOptimism ? CONNEXT_OPTIMISM : CONNEXT_ARBITRUM;
-    connextDestinationDomain = isOptimism ? DOMAIN_ID_ARBITRUM : DOMAIN_ID_OPTIMISM;
-    wsteth = isOptimism ? WSTETH_OPTIMISM : WSTETH_ARBITRUM;
+    if (optimismWethCode.length > 2) {
+      currentChain = CHAIN_OPTIMISM;
+      connextAddress = CONNEXT_OPTIMISM;
+      connextDestinationDomain = CONNEXT_ARBITRUM;
+      wstethAddress = WSTETH_OPTIMISM;
+      usdcAddress = USDC_OPTIMISM;
+      usdcSponsorAddress = USDC_SPONSOR_OPTIMISM;
+      return;
+    }
+
+    if (arbitrumWethCode.length > 2) {
+      currentChain = CHAIN_ARBITRUM;
+      connextAddress = CONNEXT_ARBITRUM;
+      connextDestinationDomain = CONNEXT_POLYGON;
+      wstethAddress = WSTETH_ARBITRUM;
+      usdcAddress = USDC_ARBITRUM;
+      usdcSponsorAddress = USDC_SPONSOR_ARBITRUM;
+      return;
+    }
+
+    currentChain = CHAIN_POLYGON;
+    connextAddress = CONNEXT_POLYGON;
+    connextDestinationDomain = CONNEXT_OPTIMISM;
+    wstethAddress = WSTETH_POLYGON;
+    usdcAddress = USDC_POLYGON;
+    usdcSponsorAddress = USDC_SPONSOR_POLYGON;
+  }
+
+  before(async () => {
+    await detectChain();
+    console.log(`Running on ${currentChain}`);
 
     initialSnapshot = await takeSnapshot();
 
     [ myAccount, secondAccount, ownerAccount, swapEmulatorCustodian, liquidatorAccount ] = await hre.ethers.getSigners();
 
-    impersonatorUsdc = await ethers.getImpersonatedSigner(isOptimism ? USDC_SPONSOR_OPTIMISM : USDC_SPONSOR_ARBITRUM);
+    impersonatorUsdc = await ethers.getImpersonatedSigner(usdcSponsorAddress);
     await setBalance(impersonatorUsdc.address, ONE_ETHER);
 
     const addressProvider = await ethers.getContractAt('IPoolAddressesProvider', ADDRESSES_PROVIDER);
@@ -92,7 +127,7 @@ describe("DeltaNeutralDollar", function() {
 
     [ mockedOracle, swapHelper, deltaNeutralDollar ] = await Promise.all([
       MockAaveOracle.deploy(await addressProvider.getPriceOracle()),
-      SwapHelper.deploy(swapEmulatorCustodian.address, wsteth),
+      SwapHelper.deploy(swapEmulatorCustodian.address, wstethAddress),
       DeltaNeutralDollar.deploy()
     ]);
 
@@ -120,8 +155,8 @@ describe("DeltaNeutralDollar", function() {
       8,
       "DNH",
       "Delta Neutral Dollar",
-      isOptimism ? USDC_OPTIMISM : USDC_ARBITRUM,
-      wsteth,
+      usdcAddress,
+      wstethAddress,
       BALANCER_VAULT,
       ADDRESSES_PROVIDER,
       settings
@@ -808,7 +843,13 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("open position with real swap", async () => {
-    const SwapHelper = await ethers.getContractFactory(isOptimism ? 'SwapHelperOptimisticEthereumUniswapV3' : 'SwapHelperArbitrumOneUniswapV3');
+    const SWAP_HELPER_NAME_BY_CHAIN = {
+      [CHAIN_ARBITRUM]: 'SwapHelperArbitrumOneUniswapV3',
+      [CHAIN_OPTIMISM]: 'SwapHelperOptimisticEthereumUniswapV3',
+      [CHAIN_POLYGON]: 'SwapHelperPolygonUniswapV3',
+    };
+
+    const SwapHelper = await ethers.getContractFactory(SWAP_HELPER_NAME_BY_CHAIN[currentChain]);
     const swapHelper = await SwapHelper.deploy();
     await swapHelper.waitForDeployment();
 
