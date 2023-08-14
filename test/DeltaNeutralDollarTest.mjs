@@ -180,7 +180,7 @@ describe("DeltaNeutralDollar", function() {
     // const bridge = await weth.bridge();
     // impersonatorWethBridge = await ethers.getImpersonatedSigner(bridge);
 
-    weth = await ethers.getContractAt('IERC20', await deltaNeutralDollar.ethToken());
+    weth = await ethers.getContractAt('IERC20MetadataUpgradeable', await deltaNeutralDollar.ethToken());
 
     impersonatorWethBridge = await ethers.getImpersonatedSigner(wstethSponsorAddress);
     await setBalance(impersonatorWethBridge.address, ONE_ETHER);
