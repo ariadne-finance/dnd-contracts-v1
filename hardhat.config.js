@@ -30,6 +30,12 @@ module.exports = {
       url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       chainId: 42161,
       accounts
+    },
+
+    polygon: {
+      url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      chainId: 42161,
+      accounts
     }
   },
 
@@ -37,6 +43,7 @@ module.exports = {
     apiKey: {
       optimisticEthereum: process.env.ETHERSCAN_OPTIMISTIC_ETHEREUM,
       arbitrumOne: process.env.ETHERSCAN_ARBITRUM_ONE,
+      polygon: process.env.ETHERSCAN_POLYGON
     }
   },
 
