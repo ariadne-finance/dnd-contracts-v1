@@ -10,21 +10,6 @@ require('@openzeppelin/hardhat-upgrades');
 
 extendEnvironment(require('./utils/deployHelper.js'));
 
-task('proper-verify', "Actually verify contract")
-  .addParam('name', "Deployment name")
-  .addOptionalParam('contract', 'contracts/Something.sol:Something')
-  .setAction(async (taskArgs, hre) => {
-    const d = await hre.deployments.get(taskArgs.name);
-
-    const contract = taskArgs.contract || `contracts/${taskArgs.name}.sol:${taskArgs.name}`;
-
-    await hre.run('verify:verify', {
-      address: d.address,
-      constructorArguments: d.args,
-      contract
-    });
-  });
-
 const accounts = process.env.PRIVATE_KEY ? [ process.env.PRIVATE_KEY ] : undefined;
 
 module.exports = {
