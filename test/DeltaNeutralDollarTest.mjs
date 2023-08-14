@@ -19,21 +19,25 @@ const USDC_OPTIMISM = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607';
 const USDC_ARBITRUM = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8';
 const USDC_POLYGON = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
 
-const CONNEXT_ARBITRUM = '0xEE9deC2712cCE65174B561151701Bf54b99C24C8';
 const CONNEXT_OPTIMISM = '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA';
+const CONNEXT_ARBITRUM = '0xEE9deC2712cCE65174B561151701Bf54b99C24C8';
 const CONNEXT_POLYGON = '0x11984dc4465481512eb5b777E44061C158CF2259';
 
-const DOMAIN_ID_ARBITRUM = 1634886255;
-const DOMAIN_ID_OPTIMISM = 1869640809;
-const DOMAIN_ID_POLYGON = 1886350457;
+const CONNEXT_DOMAIN_ID_OPTIMISM = 1869640809;
+const CONNEXT_DOMAIN_ID_ARBITRUM = 1634886255;
+const CONNEXT_DOMAIN_ID_POLYGON = 1886350457;
 
 const USDC_SPONSOR_OPTIMISM = '0xEbe80f029b1c02862B9E8a70a7e5317C06F62Cae';
 const USDC_SPONSOR_ARBITRUM = '0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef';
 const USDC_SPONSOR_POLYGON = '0x0639556F03714A74a5fEEaF5736a4A64fF70D206';
 
-const CHAIN_POLYGON = 'polygon';
+const WSTETH_SPONSOR_OPTIMISM = '0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA';
+const WSTETH_SPONSOR_ARBITRUM = '0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf';
+const WSTETH_SPONSOR_POLYGON = '0xf59036caebea7dc4b86638dfa2e3c97da9fccd40';
+
 const CHAIN_OPTIMISM = 'optimism';
 const CHAIN_ARBITRUM = 'arbitrum';
+const CHAIN_POLYGON = 'polygon';
 
 const FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 const FLAGS_WITHDRAW_PAUSED = 1 << 2;
@@ -54,7 +58,7 @@ describe("DeltaNeutralDollar", function() {
 
   let currentChain;
 
-  let usdcSponsorAddress;
+  let usdcSponsorAddress, wstethSponsorAddress;
   let myAccount, secondAccount, ownerAccount, swapEmulatorCustodian, liquidatorAccount, impersonatorUsdc, impersonatorWethBridge;
 
   let wstethAddress, usdcAddress;
@@ -83,29 +87,32 @@ describe("DeltaNeutralDollar", function() {
     if (optimismWethCode.length > 2) {
       currentChain = CHAIN_OPTIMISM;
       connextAddress = CONNEXT_OPTIMISM;
-      connextDestinationDomain = CONNEXT_ARBITRUM;
+      connextDestinationDomain = CONNEXT_DOMAIN_ID_ARBITRUM;
       wstethAddress = WSTETH_OPTIMISM;
       usdcAddress = USDC_OPTIMISM;
       usdcSponsorAddress = USDC_SPONSOR_OPTIMISM;
+      wstethSponsorAddress = WSTETH_SPONSOR_OPTIMISM;
       return;
     }
 
     if (arbitrumWethCode.length > 2) {
       currentChain = CHAIN_ARBITRUM;
       connextAddress = CONNEXT_ARBITRUM;
-      connextDestinationDomain = CONNEXT_POLYGON;
+      connextDestinationDomain = CONNEXT_DOMAIN_ID_POLYGON;
       wstethAddress = WSTETH_ARBITRUM;
       usdcAddress = USDC_ARBITRUM;
       usdcSponsorAddress = USDC_SPONSOR_ARBITRUM;
+      wstethSponsorAddress = WSTETH_SPONSOR_ARBITRUM;
       return;
     }
 
     currentChain = CHAIN_POLYGON;
     connextAddress = CONNEXT_POLYGON;
-    connextDestinationDomain = CONNEXT_OPTIMISM;
+    connextDestinationDomain = CONNEXT_DOMAIN_ID_OPTIMISM;
     wstethAddress = WSTETH_POLYGON;
     usdcAddress = USDC_POLYGON;
     usdcSponsorAddress = USDC_SPONSOR_POLYGON;
+    wstethSponsorAddress = WSTETH_SPONSOR_POLYGON;
   }
 
   before(async () => {
@@ -166,12 +173,16 @@ describe("DeltaNeutralDollar", function() {
 
     usdc = await ethers.getContractAt('IERC20MetadataUpgradeable', await deltaNeutralDollar.stableToken());
 
-    const abi = JSON.parse(fs.readFileSync('./test/WETHArbitrum.json'));
-    weth = new ethers.Contract(await deltaNeutralDollar.ethToken(), abi, myAccount);
+    // for optimism and arbitrum we can use .bridge()
 
-    const bridge = await weth.bridge();
+    // const abi = JSON.parse(fs.readFileSync('./test/WETHArbitrum.json'));
+    // weth = new ethers.Contract(await deltaNeutralDollar.ethToken(), abi, myAccount);
+    // const bridge = await weth.bridge();
+    // impersonatorWethBridge = await ethers.getImpersonatedSigner(bridge);
 
-    impersonatorWethBridge = await ethers.getImpersonatedSigner(bridge);
+    weth = await ethers.getContractAt('IERC20', await deltaNeutralDollar.ethToken());
+
+    impersonatorWethBridge = await ethers.getImpersonatedSigner(wstethSponsorAddress);
     await setBalance(impersonatorWethBridge.address, ONE_ETHER);
 
     pool = await ethers.getContractAt('IPool', await addressProvider.getPool());
@@ -235,15 +246,16 @@ describe("DeltaNeutralDollar", function() {
 
   after(async () => initialSnapshot.restore());
 
-  // beforeEach(async () => await getEth(myAccount, ONE_ETHER * 2n));
-
   afterEach("Revert snapshot after test", async () => {
     await snapshot.restore();
     snapshot = await takeSnapshot();
   });
 
   async function getEth(account, amount) {
-    return await weth.connect(impersonatorWethBridge).bridgeMint(account.address, amount);
+    return await weth.connect(impersonatorWethBridge).transfer(account.address, amount);
+
+    // mint function for optimism and arbitrum
+    // return await weth.connect(impersonatorWethBridge).bridgeMint(account.address, amount);
   }
 
   function formatBaseInUSDC(v, usdcPrice) {
