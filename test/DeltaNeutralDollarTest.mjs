@@ -771,19 +771,20 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("basic liquidation test, no contracts", async () => {
-    await weth.approve(await pool.getAddress(), 2n ** 256n - 1n);
-    await pool.supply(await weth.getAddress(), 1n * ONE_ETHER, myAccount.address, 0);
+    await usdc.approve(await pool.getAddress(), 2n ** 256n - 1n);
+    await usdc.connect(impersonatorUsdc).transfer(myAccount.address, wethPrice / 10n ** 2n * 2n); // usdc is 6 decimals, prices are 8 decimals
+    await pool.supply(await usdc.getAddress(), wethPrice / 10n ** 2n * 2n, myAccount.address, 0);
 
     const { availableBorrowsBase } = await pool.getUserAccountData(myAccount.address);
-    const borrowUsdc = availableBorrowsBase * 10n ** 6n / usdcPrice;
+    const borrowWeth = availableBorrowsBase * 10n ** 18n / wethPrice;
 
-    await pool.borrow(await usdc.getAddress(), borrowUsdc, 2, 0, myAccount.address);
+    await pool.borrow(await weth.getAddress(), borrowWeth, 2, 0, myAccount.address);
 
     const userDataBefore = await pool.getUserAccountData(myAccount.address);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 87n);
+    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 108n);
 
-    expect(await liquidate(myAccount.address, weth, usdc)).to.be.true;
+    expect(await liquidate(myAccount.address, usdc, weth)).to.be.true;
 
     const userDataAfter = await pool.getUserAccountData(myAccount.address);
 
