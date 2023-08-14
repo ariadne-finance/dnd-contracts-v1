@@ -229,7 +229,12 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
             balancerVault.flashLoan(IFlashLoanRecipient(this), tokens, amounts, userData);
         }
 
-        emit PositionClose(SafeTransferLib.balanceOf(address(ethToken), address(this)));
+        uint256 balanceAfter = SafeTransferLib.balanceOf(address(ethToken), address(this));
+
+        // this weird trick is required to work around hardhat(?) bug emiting 0 in this event
+        balanceAfter = balanceAfter + 1;
+
+        emit PositionClose(balanceAfter - 1);
     }
 
     /// @notice Calculates the required changes in collateral and debt in Aave, given the current prices of `stableToken` and `ethToken`,
