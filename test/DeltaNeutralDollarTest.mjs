@@ -8,10 +8,29 @@ const ONE_ETHER = 1n * 10n ** 18n;
 chai.use(withinPercent);
 const expect = chai.expect;
 
-const ADDRESSES_PROVIDER = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'; // optimism and arbitrum
+const ADDRESSES_PROVIDER = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'; // optimism, arbitrum and polygon
+
+const BALANCER_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'; // optimism, arbitrum and polygon
 
 const WSTETH_OPTIMISM = '0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb';
 const WSTETH_ARBITRUM = '0x5979D7b546E38E414F7E9822514be443A4800529';
+const WSTETH_POLYGON = '0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD';
+
+const USDC_OPTIMISM = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607';
+const USDC_ARBITRUM = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8';
+const USDC_POLYGON = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
+
+const CONNEXT_ARBITRUM = '0xEE9deC2712cCE65174B561151701Bf54b99C24C8';
+const CONNEXT_OPTIMISM = '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA';
+const CONNEXT_POLYGON = '0x11984dc4465481512eb5b777E44061C158CF2259';
+
+const DOMAIN_ID_ARBITRUM = 1634886255;
+const DOMAIN_ID_OPTIMISM = 1869640809;
+const DOMAIN_ID_POLYGON = 1886350457;
+
+const USDC_SPONSOR_OPTIMISM = '0xEbe80f029b1c02862B9E8a70a7e5317C06F62Cae';
+const USDC_SPONSOR_ARBITRUM = '0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef';
+const USDC_SPONSOR_POLYGON = '0x0639556F03714A74a5fEEaF5736a4A64fF70D206';
 
 const FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 const FLAGS_WITHDRAW_PAUSED = 1 << 2;
@@ -30,7 +49,7 @@ const ERROR_BETA_CAPPED = 'DND-10';
 describe("DeltaNeutralDollar", function() {
   let snapshot, initialSnapshot;
 
-  let WETH;
+  let wsteth;
   let isOptimism;
 
   let myAccount, secondAccount, ownerAccount, swapEmulatorCustodian, liquidatorAccount, impersonatorUsdc, impersonatorWethBridge;
@@ -54,16 +73,15 @@ describe("DeltaNeutralDollar", function() {
     isOptimism = optimismWethCode.length > 2;
     console.log("Running on", isOptimism ? "optimism" : "arbitrum");
 
-    connextAddress = isOptimism ? '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA' : '0xEE9deC2712cCE65174B561151701Bf54b99C24C8';
-    connextDestinationDomain = isOptimism ? 1634886255 : 1869640809;
-
-    WETH = isOptimism ? WSTETH_OPTIMISM : WSTETH_ARBITRUM;
+    connextAddress = isOptimism ? CONNEXT_OPTIMISM : CONNEXT_ARBITRUM;
+    connextDestinationDomain = isOptimism ? DOMAIN_ID_ARBITRUM : DOMAIN_ID_OPTIMISM;
+    wsteth = isOptimism ? WSTETH_OPTIMISM : WSTETH_ARBITRUM;
 
     initialSnapshot = await takeSnapshot();
 
     [ myAccount, secondAccount, ownerAccount, swapEmulatorCustodian, liquidatorAccount ] = await hre.ethers.getSigners();
 
-    impersonatorUsdc = await ethers.getImpersonatedSigner(isOptimism ? '0xEbe80f029b1c02862B9E8a70a7e5317C06F62Cae' : '0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef');
+    impersonatorUsdc = await ethers.getImpersonatedSigner(isOptimism ? USDC_SPONSOR_OPTIMISM : USDC_SPONSOR_ARBITRUM);
     await setBalance(impersonatorUsdc.address, ONE_ETHER);
 
     const addressProvider = await ethers.getContractAt('IPoolAddressesProvider', ADDRESSES_PROVIDER);
@@ -74,7 +92,7 @@ describe("DeltaNeutralDollar", function() {
 
     [ mockedOracle, swapHelper, deltaNeutralDollar ] = await Promise.all([
       MockAaveOracle.deploy(await addressProvider.getPriceOracle()),
-      SwapHelper.deploy(swapEmulatorCustodian.address, WETH),
+      SwapHelper.deploy(swapEmulatorCustodian.address, wsteth),
       DeltaNeutralDollar.deploy()
     ]);
 
@@ -102,9 +120,9 @@ describe("DeltaNeutralDollar", function() {
       8,
       "DNH",
       "Delta Neutral Dollar",
-      isOptimism ? '0x7F5c764cBc14f9669B88837ca1490cCa17c31607' : '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
-      WETH,
-      '0xBA12222222228d8Ba445958a75a0704d566BF2C8', // balancer vault
+      isOptimism ? USDC_OPTIMISM : USDC_ARBITRUM,
+      wsteth,
+      BALANCER_VAULT,
       ADDRESSES_PROVIDER,
       settings
     );
