@@ -6,6 +6,8 @@
     "no-empty-blocks": "off",
     "not-rely-on-time": "off",
 		"no-global-import": "off",
-		"func-named-parameters": "off"
+		"func-named-parameters": "off",
+		"custom-errors": "off",
+		"explicit-types": "off"
   }
 }
