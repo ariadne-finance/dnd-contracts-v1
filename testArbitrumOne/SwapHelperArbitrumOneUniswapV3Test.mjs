@@ -11,8 +11,8 @@ const expect = chai.expect;
 describe("SwapHelperArbitrumOneUniswapV3", function() {
   let snapshot;
 
-  let myAccount, impersonatorUsdce;
-  let wsteth, usdce;
+  let myAccount, impersonatorUsdce, impersonatorWeth;
+  let wsteth, usdce, weth;
   let swapHelper;
 
   before(async () => {
@@ -24,12 +24,17 @@ describe("SwapHelperArbitrumOneUniswapV3", function() {
 
     usdce = await ethers.getContractAt('IERC20', '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8');
     wsteth = await ethers.getContractAt('IERC20', '0x5979D7b546E38E414F7E9822514be443A4800529');
+    weth = await ethers.getContractAt('IERC20', '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1');
 
     impersonatorUsdce = await ethers.getImpersonatedSigner('0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef'); // someone wealthy
     await setBalance(impersonatorUsdce.address, ONE_ETHER);
 
+    impersonatorWeth = await ethers.getImpersonatedSigner('0x0dF5dfd95966753f01cb80E76dc20EA958238C46'); // someone wealthy
+    await setBalance(impersonatorWeth.address, ONE_ETHER);
+
     await wsteth.approve(await swapHelper.getAddress(), 2n**256n-1n);
     await usdce.approve(await swapHelper.getAddress(), 2n**256n-1n);
+    await weth.approve(await swapHelper.getAddress(), 2n**256n-1n);
 
     snapshot = await takeSnapshot();
   });
@@ -53,5 +58,16 @@ describe("SwapHelperArbitrumOneUniswapV3", function() {
     await swapHelper.swap(await wsteth.getAddress(), await usdce.getAddress(), wstEthBalance, myAccount.address);
 
     expect(await usdce.balanceOf(myAccount.address)).to.be.withinPercent(ONE_GRAND_USDCE, 0.2);
+  });
+
+  it("swap weth to wsteth", async () => {
+    await weth.connect(impersonatorWeth).transfer(myAccount.address, ONE_ETHER);
+
+    expect(await wsteth.balanceOf(myAccount.address)).to.be.eq(0);
+
+    await swapHelper.swap(await weth.getAddress(), await wsteth.getAddress(), ONE_ETHER, myAccount.address);
+
+    const wstEthBalance = await wsteth.balanceOf(myAccount.address);
+    expect(wstEthBalance).to.be.gt(1)
   });
 });

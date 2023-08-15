@@ -14,11 +14,13 @@ contract SwapHelperEmulator is ISwapHelper {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     address private custodian;
-    address private ethToken;
+    address private wstethToken;
+    address private wethToken;
 
-    constructor(address _custodian, address _ethToken) {
+    constructor(address _custodian, address _ethToken, address _wethToken) {
         custodian = _custodian;
-        ethToken = _ethToken;
+        wstethToken = _ethToken;
+        wethToken = _wethToken;
     }
 
     function oracle() internal view returns (IAaveOracle) {
@@ -32,20 +34,27 @@ contract SwapHelperEmulator is ISwapHelper {
     {
         IERC20Upgradeable(from).transferFrom(msg.sender, address(this), amount);
 
-        uint256 ethPrice = oracle().getAssetPrice(address(ethToken));
+        uint256 wstethPrice = oracle().getAssetPrice(address(wstethToken));
+        uint256 wethPrice = oracle().getAssetPrice(address(wethToken));
 
-        if (to == ethToken) {
-            uint256 stablePrice = oracle().getAssetPrice(from);
-            uint256 amountEth = stableToEth(amount, stablePrice, ethPrice) / 1000 * 995; // 0.5%
-            IERC20Upgradeable(ethToken).transferFrom(custodian, recipient, amountEth);
+        if (from == wethToken && to == wstethToken) {
+            uint256 amountEth = amount * wethPrice / wstethPrice / 1000 * 995; // 0.5%
+            IERC20Upgradeable(wstethToken).transferFrom(custodian, recipient, amountEth);
             IERC20Upgradeable(from).transfer(custodian, amount);
             return amountEth;
 
-        } else if (from == ethToken) {
+        } else if (to == wstethToken) {
+            uint256 stablePrice = oracle().getAssetPrice(from);
+            uint256 amountEth = stableToEth(amount, stablePrice, wstethPrice) / 1000 * 995; // 0.5%
+            IERC20Upgradeable(wstethToken).transferFrom(custodian, recipient, amountEth);
+            IERC20Upgradeable(from).transfer(custodian, amount);
+            return amountEth;
+
+        } else if (from == wstethToken) {
             uint256 stablePrice = oracle().getAssetPrice(to);
-            uint256 amountStable = ethToStable(amount, ethPrice, stablePrice) / 1000 * 995; // 0.5%
+            uint256 amountStable = ethToStable(amount, wstethPrice, stablePrice) / 1000 * 995; // 0.5%
             IERC20Upgradeable(to).transferFrom(custodian, recipient, amountStable);
-            IERC20Upgradeable(ethToken).transfer(custodian, amount);
+            IERC20Upgradeable(wstethToken).transfer(custodian, amount);
             return amountStable;
         }
 

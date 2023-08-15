@@ -32,7 +32,18 @@ contract SwapHelperArbitrumOneUniswapV3 is ISwapHelper {
         SafeTransferLib.safeTransferFrom(from, msg.sender, address(this), amount);
         SafeTransferLib.safeApprove(from, ROUTER, amount);
 
-        if (from == USDCE && to == WSTETH) {
+        if (from == WETH && to == WSTETH) {
+            ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+                path: abi.encodePacked(WETH, uint24(100), WSTETH),
+                recipient: recipient,
+                deadline: block.timestamp,
+                amountIn: amount,
+                amountOutMinimum: 0
+            });
+
+            return ISwapRouter(ROUTER).exactInput(params);
+
+        } else if (from == USDCE && to == WSTETH) {
             ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
                 path: abi.encodePacked(USDCE, uint24(500), WETH, uint24(100), WSTETH),
                 recipient: recipient,
