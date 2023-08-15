@@ -1,4 +1,3 @@
-import fs from 'fs';
 import chai from 'chai';
 import withinPercent from '../utils/chai-percent.js';
 import { takeSnapshot, setBalance } from '@nomicfoundation/hardhat-network-helpers';
@@ -14,6 +13,10 @@ const BALANCER_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'; // optimism
 const WSTETH_OPTIMISM = '0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb';
 const WSTETH_ARBITRUM = '0x5979D7b546E38E414F7E9822514be443A4800529';
 const WSTETH_POLYGON = '0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD';
+
+const WETH_OPTIMISM = '0x4200000000000000000000000000000000000006';
+const WETH_ARBITRUM = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1';
+const WETH_POLYGON = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619';
 
 const USDC_OPTIMISM = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607';
 const USDC_ARBITRUM = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8';
@@ -35,6 +38,10 @@ const WSTETH_SPONSOR_OPTIMISM = '0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA';
 const WSTETH_SPONSOR_ARBITRUM = '0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf';
 const WSTETH_SPONSOR_POLYGON = '0xf59036caebea7dc4b86638dfa2e3c97da9fccd40';
 
+const WETH_SPONSOR_OPTIMISM = '0xc4d4500326981eacD020e20A81b1c479c161c7EF';
+const WETH_SPONSOR_ARBITRUM = '0x0dF5dfd95966753f01cb80E76dc20EA958238C46';
+const WETH_SPONSOR_POLYGON = '0xF25212E676D1F7F89Cd72fFEe66158f541246445';
+
 const CHAIN_OPTIMISM = 'optimism';
 const CHAIN_ARBITRUM = 'arbitrum';
 const CHAIN_POLYGON = 'polygon';
@@ -51,40 +58,42 @@ const ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = 'DND-06';
 const ERROR_POSITION_CLOSED = 'DND-07';
 const ERROR_POSITION_UNCHANGED = 'DND-08';
 const ERROR_IMPOSSIBLE_MODE = 'DND-09';
-const ERROR_BETA_CAPPED = 'DND-10';
+const ERROR_ONLY_ALLOWED_TOKEN = 'DND-10';
+const ERROR_ONLY_ALLOWED_DESTINATION_DOMAIN = "DND-11";
 
 describe("DeltaNeutralDollar", function() {
   let snapshot, initialSnapshot;
 
   let currentChain;
 
-  let usdcSponsorAddress, wstethSponsorAddress;
-  let myAccount, secondAccount, ownerAccount, swapEmulatorCustodian, liquidatorAccount, impersonatorUsdc, impersonatorWethBridge;
+  let usdcSponsorAddress, wstethSponsorAddress, wethSponsorAddress;
+  let myAccount, secondAccount, ownerAccount, swapEmulatorCustodian, liquidatorAccount, impersonatorUsdc, impersonatorWsteth, impersonatorWeth;
 
-  let wstethAddress, usdcAddress;
-  let usdc, weth;
+  let wstethAddress, usdcAddress, wethAddress;
+  let usdc, wsteth, weth;
 
   let deltaNeutralDollar;
   let swapHelper;
   let pool;
   let mockedOracle;
 
-  let wethPriceReal
+  let wstethPriceReal
+  let wstethPrice;
   let wethPrice;
   let usdcPrice;
 
-  let wethVariableDebtToken;
+  let wstethVariableDebtToken;
   let usdcAToken;
   let connextAddress;
   let connextDestinationDomain;
 
   async function detectChain() {
-    const [ optimismWethCode, arbitrumWethCode ] = await Promise.all([
+    const [ optimismCode, arbitrumCode ] = await Promise.all([
       ethers.provider.getCode(WSTETH_OPTIMISM),
       ethers.provider.getCode(WSTETH_ARBITRUM)
     ]);
 
-    if (optimismWethCode.length > 2) {
+    if (optimismCode.length > 2) {
       currentChain = CHAIN_OPTIMISM;
       connextAddress = CONNEXT_OPTIMISM;
       connextDestinationDomain = CONNEXT_DOMAIN_ID_ARBITRUM;
@@ -92,10 +101,12 @@ describe("DeltaNeutralDollar", function() {
       usdcAddress = USDC_OPTIMISM;
       usdcSponsorAddress = USDC_SPONSOR_OPTIMISM;
       wstethSponsorAddress = WSTETH_SPONSOR_OPTIMISM;
+      wethAddress = WETH_OPTIMISM;
+      wethSponsorAddress = WETH_SPONSOR_OPTIMISM;
       return;
     }
 
-    if (arbitrumWethCode.length > 2) {
+    if (arbitrumCode.length > 2) {
       currentChain = CHAIN_ARBITRUM;
       connextAddress = CONNEXT_ARBITRUM;
       connextDestinationDomain = CONNEXT_DOMAIN_ID_POLYGON;
@@ -103,6 +114,8 @@ describe("DeltaNeutralDollar", function() {
       usdcAddress = USDC_ARBITRUM;
       usdcSponsorAddress = USDC_SPONSOR_ARBITRUM;
       wstethSponsorAddress = WSTETH_SPONSOR_ARBITRUM;
+      wethAddress = WETH_ARBITRUM;
+      wethSponsorAddress = WETH_SPONSOR_ARBITRUM;
       return;
     }
 
@@ -113,6 +126,8 @@ describe("DeltaNeutralDollar", function() {
     usdcAddress = USDC_POLYGON;
     usdcSponsorAddress = USDC_SPONSOR_POLYGON;
     wstethSponsorAddress = WSTETH_SPONSOR_POLYGON;
+    wethAddress = WETH_POLYGON;
+    wethSponsorAddress = WETH_SPONSOR_POLYGON;
   }
 
   before(async () => {
@@ -134,7 +149,7 @@ describe("DeltaNeutralDollar", function() {
 
     [ mockedOracle, swapHelper, deltaNeutralDollar ] = await Promise.all([
       MockAaveOracle.deploy(await addressProvider.getPriceOracle()),
-      SwapHelper.deploy(swapEmulatorCustodian.address, wstethAddress),
+      SwapHelper.deploy(swapEmulatorCustodian.address, wstethAddress, wethAddress),
       DeltaNeutralDollar.deploy()
     ]);
 
@@ -146,10 +161,13 @@ describe("DeltaNeutralDollar", function() {
 
     const settings = {
       swapHelper: await swapHelper.getAddress(),
+      connext: connextAddress,
 
       minAmountToChangePositionBase: 17n * 10n ** 8n,
 
       minEthToDeposit: 10n ** 18n / 100n, // 0.01 ETH
+      maxEthToDeposit: 10n ** 18n * 2n, // 2 ETH
+
       minAmountToWithdraw: 10n ** 8n, // 1 DND
 
       additionalLtvDistancePercent: 10,
@@ -180,37 +198,49 @@ describe("DeltaNeutralDollar", function() {
     // const bridge = await weth.bridge();
     // impersonatorWethBridge = await ethers.getImpersonatedSigner(bridge);
 
-    weth = await ethers.getContractAt('IERC20MetadataUpgradeable', await deltaNeutralDollar.ethToken());
+    wsteth = await ethers.getContractAt('IERC20MetadataUpgradeable', await deltaNeutralDollar.ethToken());
+    weth = await ethers.getContractAt('IERC20MetadataUpgradeable', wethAddress);
 
-    impersonatorWethBridge = await ethers.getImpersonatedSigner(wstethSponsorAddress);
-    await setBalance(impersonatorWethBridge.address, ONE_ETHER);
+    impersonatorWsteth = await ethers.getImpersonatedSigner(wstethSponsorAddress);
+    impersonatorWeth = await ethers.getImpersonatedSigner(wethSponsorAddress);
+
+    await setBalance(impersonatorWsteth.address, ONE_ETHER);
+    await setBalance(impersonatorWeth.address, ONE_ETHER);
+
+    await deltaNeutralDollar.connect(ownerAccount).setAllowedDepositToken(await weth.getAddress(), true);
+
+    await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_OPTIMISM, true);
+    await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_ARBITRUM, true);
+    await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_POLYGON, true);
 
     pool = await ethers.getContractAt('IPool', await addressProvider.getPool());
 
     await Promise.all([
       weth.approve(await deltaNeutralDollar.getAddress(), 2n ** 256n - 1n),
-      getEth(myAccount, ONE_ETHER * 2n)
+      wsteth.approve(await deltaNeutralDollar.getAddress(), 2n ** 256n - 1n),
+      getWsteth(myAccount, ONE_ETHER * 2n)
     ]);
 
     // prepare swapEmulator custodian
     {
       await Promise.all([
-        getEth(swapEmulatorCustodian, 10n * ONE_ETHER),
-
+        getWsteth(swapEmulatorCustodian, 10n * ONE_ETHER),
+        weth.connect(impersonatorWeth).transfer(await swapEmulatorCustodian.getAddress(), 10n * ONE_ETHER),
         usdc.connect(impersonatorUsdc).transfer(await swapEmulatorCustodian.getAddress(), 10000n * 10n ** 6n),
 
-        weth.connect(swapEmulatorCustodian).approve(await swapHelper.getAddress(), 2n**256n-1n),
-        usdc.connect(swapEmulatorCustodian).approve(await swapHelper.getAddress(), 2n**256n-1n)
+        wsteth.connect(swapEmulatorCustodian).approve(await swapHelper.getAddress(), 2n**256n-1n),
+        usdc.connect(swapEmulatorCustodian).approve(await swapHelper.getAddress(), 2n**256n-1n),
+        weth.connect(swapEmulatorCustodian).approve(await swapHelper.getAddress(), 2n**256n-1n)
       ]);
     }
 
     // prepare liquidatorAccount
     {
       await Promise.all([
-        getEth(liquidatorAccount, 10n * ONE_ETHER),
+        getWsteth(liquidatorAccount, 10n * ONE_ETHER),
 
         usdc.connect(liquidatorAccount).approve(await pool.getAddress(), 2n ** 256n - 1n),
-        weth.connect(liquidatorAccount).approve(await pool.getAddress(), 2n ** 256n - 1n)
+        wsteth.connect(liquidatorAccount).approve(await pool.getAddress(), 2n ** 256n - 1n)
       ]);
     }
 
@@ -221,21 +251,23 @@ describe("DeltaNeutralDollar", function() {
       await setBalance(await impersonatorOwner.getAddress(), ONE_ETHER);
       await addressProvider.connect(impersonatorOwner).setPriceOracle(await mockedOracle.getAddress());
 
-      wethPriceReal = await mockedOracle.getAssetPrice(await weth.getAddress());
+      wstethPriceReal = await mockedOracle.getAssetPrice(await wsteth.getAddress());
 
-      await mockedOracle.setOverridePrice(await weth.getAddress(), 2000n * 10n**8n);
+      await mockedOracle.setOverridePrice(await wsteth.getAddress(), 2000n * 10n**8n);
+      await mockedOracle.setOverridePrice(await weth.getAddress(), 1800n * 10n**8n);
 
+      wstethPrice = await mockedOracle.getAssetPrice(await wsteth.getAddress());
       wethPrice = await mockedOracle.getAssetPrice(await weth.getAddress());
       usdcPrice = await mockedOracle.getAssetPrice(await usdc.getAddress());
-      console.log('eth price', formatBaseInUSDC(wethPriceReal, usdcPrice), '->', formatBaseInUSDC(wethPrice, usdcPrice));
+      console.log('eth price', formatBaseInUSDC(wstethPriceReal, usdcPrice), '->', formatBaseInUSDC(wstethPrice, usdcPrice));
     }
 
     // prepare aave tokens
     {
       const poolDataProvider = await ethers.getContractAt('IPoolDataProvider', await addressProvider.getPoolDataProvider());
 
-      let reserveTokenAddresses = await poolDataProvider.getReserveTokensAddresses(await weth.getAddress());
-      wethVariableDebtToken = await ethers.getContractAt('IERC20MetadataUpgradeable', reserveTokenAddresses.variableDebtTokenAddress);
+      let reserveTokenAddresses = await poolDataProvider.getReserveTokensAddresses(await wsteth.getAddress());
+      wstethVariableDebtToken = await ethers.getContractAt('IERC20MetadataUpgradeable', reserveTokenAddresses.variableDebtTokenAddress);
 
       reserveTokenAddresses = await poolDataProvider.getReserveTokensAddresses(await usdc.getAddress());
       usdcAToken = await ethers.getContractAt('IERC20MetadataUpgradeable', reserveTokenAddresses.aTokenAddress);
@@ -251,8 +283,8 @@ describe("DeltaNeutralDollar", function() {
     snapshot = await takeSnapshot();
   });
 
-  async function getEth(account, amount) {
-    return await weth.connect(impersonatorWethBridge).transfer(account.address, amount);
+  async function getWsteth(account, amount) {
+    return await wsteth.connect(impersonatorWsteth).transfer(account.address, amount);
 
     // mint function for optimism and arbitrum
     // return await weth.connect(impersonatorWethBridge).bridgeMint(account.address, amount);
@@ -286,7 +318,7 @@ describe("DeltaNeutralDollar", function() {
 
     const userData = await pool.getUserAccountData(address);
 
-    const wethPrice = await mockedOracle.getAssetPrice(await weth.getAddress());
+    const wethPrice = await mockedOracle.getAssetPrice(await wsteth.getAddress());
     const usdcPrice = await mockedOracle.getAssetPrice(await usdc.getAddress());
     const netBase = userData.totalCollateralBase - userData.totalDebtBase;
 
@@ -309,10 +341,10 @@ describe("DeltaNeutralDollar", function() {
     console.log('        totalCollateralBase', formatBaseInUSDC(userData.totalCollateralBase, usdcPrice));
     console.log('            totalCollateral', formatDecimals(await usdcAToken.balanceOf(await deltaNeutralDollar.getAddress()), 6), 'USDC');
     console.log('              totalDebtBase', formatBaseInUSDC(userData.totalDebtBase, usdcPrice));
-    console.log('                  totalDebt', formatDecimals(await wethVariableDebtToken.balanceOf(await deltaNeutralDollar.getAddress()), 18), 'ETH');
+    console.log('                  totalDebt', formatDecimals(await wstethVariableDebtToken.balanceOf(await deltaNeutralDollar.getAddress()), 18), 'ETH');
     console.log('                    netBase', formatBaseInUSDC(netBase, usdcPrice));
 
-    const wethBalance = await weth.balanceOf(address);
+    const wethBalance = await wsteth.balanceOf(address);
     const wethBalanceBase = wethPrice * wethBalance / ONE_ETHER;
     console.log('               weth balance', formatDecimals(wethBalance, 18), 'ETH aka', formatBaseInUSDC(wethBalanceBase, usdcPrice));
 
@@ -339,7 +371,7 @@ describe("DeltaNeutralDollar", function() {
 
     await usdc.connect(impersonatorUsdc).transfer(liquidatorAccount.address, 7000n * 10n ** 6n);
 
-    collateral ||= weth;
+    collateral ||= wsteth;
     debt ||= usdc;
 
     const tr = await (await pool.connect(liquidatorAccount).liquidationCall(
@@ -361,22 +393,34 @@ describe("DeltaNeutralDollar", function() {
     return true;
   }
 
-  it("open position", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+  it("open position in wsteth", async () => {
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wstethPrice, 1);
+
+    let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
+    expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
+  });
+
+  it("open position in weth", async () => {
+    await weth.connect(impersonatorWeth).transfer(myAccount.address, ONE_ETHER);
+
+    await deltaNeutralDollar.deposit(wethAddress, ONE_ETHER);
+
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice, 1.1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
   });
 
   it("eth price down", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 93n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 93n);
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.debtChangeBase).to.be.gt(0);
@@ -384,18 +428,18 @@ describe("DeltaNeutralDollar", function() {
 
     await deltaNeutralDollar.rebalance();
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
 
     diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
   });
 
   it("eth price up", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 103n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 103n);
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.debtChangeBase).to.be.lt(0);
@@ -403,90 +447,90 @@ describe("DeltaNeutralDollar", function() {
 
     await deltaNeutralDollar.rebalance();
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
 
     diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
   });
 
   it("eth price up then price down", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 103n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 103n);
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
-
-    await deltaNeutralDollar.rebalance();
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
-
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 97n);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
 
     await deltaNeutralDollar.rebalance();
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
+
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 97n);
+
+    await deltaNeutralDollar.rebalance();
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wstethPrice, 1);
   });
 
   it("eth price down 2x stepwise", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     for (let percent = 93; percent >= 51; percent -= 7) {
       console.log(`eth price at ${percent}%`);
-      await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * BigInt(percent));
+      await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * BigInt(percent));
       await deltaNeutralDollar.rebalance();
-      expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
+      expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
     }
 
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
-    const wethPriceAtTheEnd = await mockedOracle.getAssetPrice(await weth.getAddress());
-    const balance = await weth.balanceOf(await deltaNeutralDollar.getAddress());
+    const wethPriceAtTheEnd = await mockedOracle.getAssetPrice(await wsteth.getAddress());
+    const balance = await wsteth.balanceOf(await deltaNeutralDollar.getAddress());
     const balanceInBase = balance * wethPriceAtTheEnd / 10n**18n;
 
-    expect(balanceInBase).to.be.withinPercent(wethPrice, 1.1);
+    expect(balanceInBase).to.be.withinPercent(wstethPrice, 1.1);
   });
 
   it("eth price up 2x stepwise", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     for (let percent = 107; percent <= 198; percent += 7) {
       console.log(`eth price at ${percent}%`);
-      await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * BigInt(percent));
+      await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * BigInt(percent));
       await deltaNeutralDollar.rebalance();
-      expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1);
+      expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1);
     }
 
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
-    const wethPriceAtTheEnd = await mockedOracle.getAssetPrice(await weth.getAddress());
-    const balance = await weth.balanceOf(await deltaNeutralDollar.getAddress());
+    const wethPriceAtTheEnd = await mockedOracle.getAssetPrice(await wsteth.getAddress());
+    const balance = await wsteth.balanceOf(await deltaNeutralDollar.getAddress());
     const balanceInBase = balance * wethPriceAtTheEnd / 10n**18n;
 
-    expect(balanceInBase).to.be.withinPercent(wethPrice, 1.1);
+    expect(balanceInBase).to.be.withinPercent(wstethPrice, 1.1);
   });
 
   it("deposit twice", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice * 2n, 2);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 2n, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice * 2n, 2);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wstethPrice * 2n, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
   });
 
   it("deposit twice with a huge price change between deposits", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 96n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 96n);
 
     await deltaNeutralDollar.rebalance();
 
-    await getEth(myAccount, ONE_ETHER * 1n);
+    await getWsteth(myAccount, ONE_ETHER * 1n);
 
-    await deltaNeutralDollar.deposit(ONE_ETHER * 2n);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER * 2n);
 
-    const expectedBalanceBase = wethPrice + (wethPrice * 2n / 100n * 96n); // three eth, out of which two are deposited on diff price
+    const expectedBalanceBase = wstethPrice + (wstethPrice * 2n / 100n * 96n); // three eth, out of which two are deposited on diff price
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(expectedBalanceBase, 1);
 
@@ -497,13 +541,13 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("withdraw almost everything", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // burn to zero
-    await weth.transfer(liquidatorAccount.address, await weth.balanceOf(myAccount.address));
+    await wsteth.transfer(liquidatorAccount.address, await wsteth.balanceOf(myAccount.address));
 
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalanceBefore / 100n * 79n, false);
+    await deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalanceBefore / 100n * 79n);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
@@ -512,39 +556,56 @@ describe("DeltaNeutralDollar", function() {
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2);
     expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2);
     expect(await deltaNeutralDollar.totalSupply()).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2); // because for a single user it's the same as totalBalance
-    expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 79n, 2);
+    expect(await wsteth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 79n, 2);
   });
 
   it("withdraw in stable", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // burn to zero
     await usdc.transfer(liquidatorAccount.address, await usdc.balanceOf(myAccount.address));
 
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalanceBefore / 2n, true);
+    await deltaNeutralDollar.withdraw(await usdc.getAddress(), myBalanceBefore / 2n);
 
-    expect(await usdc.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice / 2n / 10n ** 2n, 2);
+    expect(await usdc.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice / 2n / 10n ** 2n, 2);
+  });
+
+  it("withdraw in disallowed token", async () => {
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
+    const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
+    await expect(deltaNeutralDollar.withdraw(ethers.ZeroAddress, myBalance / 2n)).to.be.revertedWith(ERROR_ONLY_ALLOWED_TOKEN);
   });
 
   it("withdraw to connext", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // burn to zero
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
     await usdc.transfer(liquidatorAccount.address, await usdc.balanceOf(myAccount.address));
 
     const RELAYER_FEE = 10n ** 18n / 100n * 3n;
-    await deltaNeutralDollar.withdrawX(myBalanceBefore / 2n, connextAddress, connextDestinationDomain, 100, RELAYER_FEE, { value: RELAYER_FEE });
+    await deltaNeutralDollar.withdrawX(await usdc.getAddress(), myBalanceBefore / 2n, connextDestinationDomain, 100, RELAYER_FEE, { value: RELAYER_FEE });
 
     expect(await usdc.balanceOf(myAccount.address)).to.be.eq(0);
   });
 
+  it("withdraw to connext to disabled destination domain", async () => {
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
+
+    const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
+
+    const RELAYER_FEE = 10n ** 18n / 100n * 3n;
+    await expect(
+      deltaNeutralDollar.withdrawX(await usdc.getAddress(), myBalance / 2n, 111, 100, RELAYER_FEE, { value: RELAYER_FEE })
+    ).to.be.revertedWith(ERROR_ONLY_ALLOWED_DESTINATION_DOMAIN);
+  });
+
   it("withdraw must emit events", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false);
+    await deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalanceBefore / 4n);
 
     function quarterOfEth(x) {
       const QUARTER = ONE_ETHER / 4n;
@@ -552,7 +613,7 @@ describe("DeltaNeutralDollar", function() {
     }
 
     function quarterOfEthInStable(x) {
-      const quarter = wethPrice / 4n / 10n ** 2n;
+      const quarter = wstethPrice / 4n / 10n ** 2n;
       return x >= quarter / 100n * 98n && x <= quarter / 100n * 102n;
     }
 
@@ -561,54 +622,60 @@ describe("DeltaNeutralDollar", function() {
       return x >= referenceValue / 100n * 98n && x <= referenceValue / 100n * 102n;
     }
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, true)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, quarterOfEthInStable, 0);
+    await expect(deltaNeutralDollar.withdraw(await usdc.getAddress(), myBalanceBefore / 4n)).to.emit(deltaNeutralDollar, 'PositionWithdraw')
+      .withArgs(await usdc.getAddress(), myBalanceBefore / 4n, quarterOfBalance, quarterOfEth, quarterOfEthInStable, 0);
 
-    await expect(deltaNeutralDollar.withdraw(myBalanceBefore / 4n, false)).to.emit(deltaNeutralDollar, 'PositionWithdraw').withArgs(quarterOfBalance, quarterOfEth, 0, 0);
+    await expect(deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalanceBefore / 4n)).to.emit(deltaNeutralDollar, 'PositionWithdraw')
+      .withArgs(await wsteth.getAddress(), myBalanceBefore / 4n, quarterOfBalance, quarterOfEth, 0, 0);
   });
 
   it("deposit must emit events", async () => {
     function correctBaseAmount(x) {
-      return x >= (wethPrice / 100n * 98n) && x <= (wethPrice / 100n * 102n);
+      return x >= (wstethPrice / 100n * 98n) && x <= (wstethPrice / 100n * 102n);
     }
 
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.emit(deltaNeutralDollar, 'PositionDeposit').withArgs(correctBaseAmount, ONE_ETHER);
+    await expect(deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER)).to.emit(deltaNeutralDollar, 'PositionDeposit')
+      .withArgs(await wsteth.getAddress(), ONE_ETHER, correctBaseAmount, ONE_ETHER);
   });
 
   it("transfer tokens", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
     await deltaNeutralDollar.transfer(secondAccount.address, await deltaNeutralDollar.balanceOf(myAccount.address));
 
     // burn to zero
-    await weth.connect(secondAccount).transfer(swapEmulatorCustodian.address, await weth.balanceOf(secondAccount.address));
+    await wsteth.connect(secondAccount).transfer(swapEmulatorCustodian.address, await wsteth.balanceOf(secondAccount.address));
 
     const secondBalanceBefore = await deltaNeutralDollar.balanceOf(secondAccount.address);
-    expect(secondBalanceBefore).to.be.withinPercent(wethPrice, 1.1);
+    expect(secondBalanceBefore).to.be.withinPercent(wstethPrice, 1.1);
 
-    await expect(deltaNeutralDollar.withdraw(1000000000, false)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+    await expect(deltaNeutralDollar.withdraw(await wsteth.getAddress(), 1000000000)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
-    await deltaNeutralDollar.connect(secondAccount).withdraw(secondBalanceBefore / 2n, false);
+    await deltaNeutralDollar.connect(secondAccount).withdraw(await wsteth.getAddress(), secondBalanceBefore / 2n);
 
-    expect(await weth.balanceOf(secondAccount.address)).to.be.withinPercent(ONE_ETHER / 2n, 1.1);
+    expect(await wsteth.balanceOf(secondAccount.address)).to.be.withinPercent(ONE_ETHER / 2n, 1.1);
   });
 
   it("withdraw more than balance", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
     const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await expect(deltaNeutralDollar.withdraw(myBalance + 1n, false)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+    await expect(deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalance + 1n)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
   });
 
   it("only owner can close position", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
     await expect(deltaNeutralDollar.closePosition()).to.be.revertedWith('Ownable: caller is not the owner');
   });
 
-  it("only owner can set settings", async () => {
+  it("only owner can set settings and mappings", async () => {
     const settings = {
       swapHelper: ethers.ZeroAddress,
+      connext: ethers.ZeroAddress,
 
       minAmountToChangePositionBase: 0,
 
       minEthToDeposit: 0,
+      maxEthToDeposit: 2n**256n-1n,
+
       minAmountToWithdraw: 0,
 
       additionalLtvDistancePercent: 0,
@@ -618,44 +685,49 @@ describe("DeltaNeutralDollar", function() {
     };
 
     await expect(deltaNeutralDollar.setSettings(settings)).to.be.revertedWith('Ownable: caller is not the owner');
+
+    await expect(deltaNeutralDollar.setAllowedDepositToken(ethers.ZeroAddress, true)).to.be.revertedWith('Ownable: caller is not the owner');
+    await expect(deltaNeutralDollar.setAllowedWithdrawToken(ethers.ZeroAddress, true)).to.be.revertedWith('Ownable: caller is not the owner');
+    await expect(deltaNeutralDollar.setAllowedDestinationDomain(111, true)).to.be.revertedWith('Ownable: caller is not the owner');
   });
 
   it("only owner can collect tokens", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
-    await expect(deltaNeutralDollar.collectTokens([ await weth.getAddress() ], myAccount.address)).to.be.revertedWith('Ownable: caller is not the owner');
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
+    await expect(deltaNeutralDollar.collectTokens([ await wsteth.getAddress() ], myAccount.address)).to.be.revertedWith('Ownable: caller is not the owner');
   });
 
   it("caps are respected", async () => {
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER * 2n + 1n)).to.be.revertedWith(ERROR_BETA_CAPPED);
-    await expect(deltaNeutralDollar.deposit(1n)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+    await wsteth.connect(impersonatorWsteth).transfer(myAccount.address, ONE_ETHER * 3n + 1n);
+    await expect(deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER * 3n + 1n)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+    await expect(deltaNeutralDollar.deposit(await wsteth.getAddress(), 1n)).to.be.revertedWith(ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
   });
 
   it("cannot deposit when flags disabled", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER / 2n);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER / 2n);
 
     const settings = (await deltaNeutralDollar.settings()).toObject();
     settings.flags = FLAGS_DEPOSIT_PAUSED;
     await deltaNeutralDollar.connect(ownerAccount).setSettings(settings);
 
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER / 2n)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
+    await expect(deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER / 2n)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
 
-    await deltaNeutralDollar.withdraw(await deltaNeutralDollar.balanceOf(myAccount.address) / 2n, false); // withdraw still allowed
+    await deltaNeutralDollar.withdraw(await wsteth.getAddress(), await deltaNeutralDollar.balanceOf(myAccount.address) / 2n); // withdraw still allowed
   });
 
   it("cannot withdraw when flags disabled", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER / 2n);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER / 2n);
 
     const settings = (await deltaNeutralDollar.settings()).toObject();
     settings.flags = FLAGS_WITHDRAW_PAUSED;
     await deltaNeutralDollar.connect(ownerAccount).setSettings(settings);
 
-    await expect(deltaNeutralDollar.withdraw(100, false)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
+    await expect(deltaNeutralDollar.withdraw(await wsteth.getAddress(), 100)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
 
-    await deltaNeutralDollar.deposit(ONE_ETHER / 2n); // deposit still allowed
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER / 2n); // deposit still allowed
   });
 
   it("close position with balance and emit event", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     function aboutOneEther(x) {
       return x >= (ONE_ETHER / 100n * 98n) && x <= (ONE_ETHER / 100n * 102n);
@@ -663,51 +735,51 @@ describe("DeltaNeutralDollar", function() {
 
     await expect(deltaNeutralDollar.connect(ownerAccount).closePosition()).to.emit(deltaNeutralDollar, 'PositionClose').withArgs(aboutOneEther);
 
-    expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER, 1.1);
+    expect(await wsteth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER, 1.1);
     expect(await usdc.balanceOf(await deltaNeutralDollar.getAddress())).to.be.eq(0);
   });
 
   it("close position with flash loan and emit event", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    const before = await weth.balanceOf(myAccount.address);
-    await deltaNeutralDollar.connect(ownerAccount).collectTokens([ await weth.getAddress() ], myAccount.address);
-    const after = await weth.balanceOf(myAccount.address);
+    const before = await wsteth.balanceOf(myAccount.address);
+    await deltaNeutralDollar.connect(ownerAccount).collectTokens([ await wsteth.getAddress() ], myAccount.address);
+    const after = await wsteth.balanceOf(myAccount.address);
     const diff = after - before - (ONE_ETHER / 2n);
 
     // force balance less than debt
-    await weth.transfer(await deltaNeutralDollar.getAddress(), diff);
+    await wsteth.transfer(await deltaNeutralDollar.getAddress(), diff);
 
     await expect(deltaNeutralDollar.connect(ownerAccount).closePosition()).to.emit(deltaNeutralDollar, 'PositionClose');
 
-    await weth.transfer(await deltaNeutralDollar.getAddress(), ONE_ETHER / 2n);
+    await wsteth.transfer(await deltaNeutralDollar.getAddress(), ONE_ETHER / 2n);
 
-    expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER, 1.1);
+    expect(await wsteth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER, 1.1);
     expect(await usdc.balanceOf(await deltaNeutralDollar.getAddress())).to.be.eq(0);
   });
 
   it("disallow deposit after close position", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
-    await expect(deltaNeutralDollar.deposit(ONE_ETHER)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
+    await expect(deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER)).to.be.revertedWith(ERROR_OPERATION_DISABLED_BY_FLAGS);
   });
 
   it("eth price down then close position", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 96n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 96n);
 
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
-    expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER / 100n * 104n, 1);
+    expect(await wsteth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER / 100n * 104n, 1);
     expect(await usdc.balanceOf(await deltaNeutralDollar.getAddress())).to.be.eq(0);
   });
 
   it("does not rebalance in case of too small percent movement", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // mock 4% price difference
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 96n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 96n);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.debtChangeBase).to.be.gt(0);
@@ -723,40 +795,40 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("eth price up then close position", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 104n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 104n);
 
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
-    expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER / 100n * 96n, 1);
+    expect(await wsteth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER / 100n * 96n, 1);
     expect(await usdc.balanceOf(await deltaNeutralDollar.getAddress())).to.be.eq(0);
   });
 
   it("close position then withdraw", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // burn to zero
-    await weth.transfer(liquidatorAccount.address, await weth.balanceOf(myAccount.address));
+    await wsteth.transfer(liquidatorAccount.address, await wsteth.balanceOf(myAccount.address));
 
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
     const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(myBalance, false);
+    await deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalance);
 
-    expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.lt(10000000);
-    expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER, 1.1);
+    expect(await wsteth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.lt(10000000);
+    expect(await wsteth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER, 1.1);
 
     expect(await deltaNeutralDollar.totalSupply()).to.be.eq(0);
     expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(0, 0.1);
   });
 
   it("usdc price down", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     await mockedOracle.setOverridePrice(await usdc.getAddress(), usdcPrice / 100n * 97n);
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1.1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1.1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.debtChangeBase).to.be.lt(0);
@@ -764,7 +836,7 @@ describe("DeltaNeutralDollar", function() {
 
     await deltaNeutralDollar.rebalance();
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPrice, 1.1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPrice, 1.1);
 
     diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
@@ -772,19 +844,19 @@ describe("DeltaNeutralDollar", function() {
 
   it("basic liquidation test, no contracts", async () => {
     await usdc.approve(await pool.getAddress(), 2n ** 256n - 1n);
-    await usdc.connect(impersonatorUsdc).transfer(myAccount.address, wethPrice / 10n ** 2n * 2n); // usdc is 6 decimals, prices are 8 decimals
-    await pool.supply(await usdc.getAddress(), wethPrice / 10n ** 2n * 2n, myAccount.address, 0);
+    await usdc.connect(impersonatorUsdc).transfer(myAccount.address, wstethPrice / 10n ** 2n * 2n); // usdc is 6 decimals, prices are 8 decimals
+    await pool.supply(await usdc.getAddress(), wstethPrice / 10n ** 2n * 2n, myAccount.address, 0);
 
     const { availableBorrowsBase } = await pool.getUserAccountData(myAccount.address);
-    const borrowWeth = availableBorrowsBase * 10n ** 18n / wethPrice;
+    const borrowWeth = availableBorrowsBase * 10n ** 18n / wstethPrice;
 
-    await pool.borrow(await weth.getAddress(), borrowWeth, 2, 0, myAccount.address);
+    await pool.borrow(await wsteth.getAddress(), borrowWeth, 2, 0, myAccount.address);
 
     const userDataBefore = await pool.getUserAccountData(myAccount.address);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPrice / 100n * 108n);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPrice / 100n * 108n);
 
-    expect(await liquidate(myAccount.address, usdc, weth)).to.be.true;
+    expect(await liquidate(myAccount.address, usdc, wsteth)).to.be.true;
 
     const userDataAfter = await pool.getUserAccountData(myAccount.address);
 
@@ -793,65 +865,65 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("eth price up then liquidation then close", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // burn to zero
-    await weth.transfer(liquidatorAccount.address, await weth.balanceOf(myAccount.address));
+    await wsteth.transfer(liquidatorAccount.address, await wsteth.balanceOf(myAccount.address));
 
     const baseBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
     const totalBalanceBefore = await deltaNeutralDollar.totalBalanceBase();
 
-    const higherWethPrice = wethPrice / 100n * 108n;
+    const higherWethPrice = wstethPrice / 100n * 108n;
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), higherWethPrice);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), higherWethPrice);
 
-    expect(await liquidate(await deltaNeutralDollar.getAddress(), usdc, weth)).to.be.true;
+    expect(await liquidate(await deltaNeutralDollar.getAddress(), usdc, wsteth)).to.be.true;
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(baseBalanceBefore, 1);
     expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(totalBalanceBefore / 100n * 98n, 1); // two percent liquidation hit
 
     await deltaNeutralDollar.connect(ownerAccount).closePosition();
 
-    expect(await weth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER / 100n * 90n, 1); // 2% hit and 8% price difff
+    expect(await wsteth.balanceOf(await deltaNeutralDollar.getAddress())).to.be.withinPercent(ONE_ETHER / 100n * 90n, 1); // 2% hit and 8% price difff
     expect(await usdc.balanceOf(await deltaNeutralDollar.getAddress())).to.be.eq(0);
   });
 
   it("multiple users", async () => {
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // burn to zero
-    await weth.transfer(liquidatorAccount.address, await weth.balanceOf(myAccount.address));
+    await wsteth.transfer(liquidatorAccount.address, await wsteth.balanceOf(myAccount.address));
 
-    await weth.connect(secondAccount).approve(await deltaNeutralDollar.getAddress(), 2n ** 256n - 1n);
+    await wsteth.connect(secondAccount).approve(await deltaNeutralDollar.getAddress(), 2n ** 256n - 1n);
 
-    await getEth(secondAccount, ONE_ETHER * 2n);
+    await getWsteth(secondAccount, ONE_ETHER * 2n);
 
-    await deltaNeutralDollar.connect(secondAccount).deposit(ONE_ETHER * 2n);
+    await deltaNeutralDollar.connect(secondAccount).deposit(await wsteth.getAddress(), ONE_ETHER * 2n);
 
     const myBalanceAfterDeposit = await deltaNeutralDollar.balanceOf(myAccount.address);
 
-    expect(myBalanceAfterDeposit).to.be.withinPercent(wethPrice, 1.1);
-    expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wethPrice * 2n, 1.1);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 3n, 1.1);
+    expect(myBalanceAfterDeposit).to.be.withinPercent(wstethPrice, 1.1);
+    expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wstethPrice * 2n, 1.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wstethPrice * 3n, 1.1);
 
     const totalSupplyBefore = await deltaNeutralDollar.totalSupply();
-    expect(totalSupplyBefore).to.be.withinPercent(wethPrice * 3n, 1.1);
+    expect(totalSupplyBefore).to.be.withinPercent(wstethPrice * 3n, 1.1);
 
-    const higherWethPrice = wethPrice / 100n * 103n;
-    await mockedOracle.setOverridePrice(await weth.getAddress(), higherWethPrice);
+    const higherWethPrice = wstethPrice / 100n * 103n;
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), higherWethPrice);
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.eq(myBalanceAfterDeposit);
-    expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wethPrice * 2n, 1.1);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 3n, 1.1);
+    expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wstethPrice * 2n, 1.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wstethPrice * 3n, 1.1);
     expect(await deltaNeutralDollar.totalSupply()).to.be.eq(totalSupplyBefore);
 
-    await deltaNeutralDollar.withdraw(myBalanceAfterDeposit, false);
+    await deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalanceAfterDeposit);
 
-    expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 97n, 1.1);
+    expect(await wsteth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 97n, 1.1);
 
     expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.eq(0);
-    expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wethPrice * 2n, 1.1);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPrice * 2n, 1.1);
+    expect(await deltaNeutralDollar.balanceOf(secondAccount.address)).to.be.withinPercent(wstethPrice * 2n, 1.1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wstethPrice * 2n, 1.1);
     expect(await deltaNeutralDollar.totalSupply()).to.be.withinPercent(totalSupplyBefore / 3n * 2n, 1.1);
   });
 
@@ -871,22 +943,28 @@ describe("DeltaNeutralDollar", function() {
 
     await deltaNeutralDollar.connect(ownerAccount).setSettings(settings);
 
-    await mockedOracle.setOverridePrice(await weth.getAddress(), wethPriceReal);
+    await mockedOracle.setOverridePrice(await wsteth.getAddress(), wstethPriceReal);
 
-    await deltaNeutralDollar.deposit(ONE_ETHER);
+    await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wethPriceReal, 1);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wethPriceReal, 1);
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(wstethPriceReal, 1);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(wstethPriceReal, 1);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
   });
 
+  it("open position in disallowed token", async () => {
+    await expect(deltaNeutralDollar.deposit(ethers.ZeroAddress, ONE_ETHER)).to.be.revertedWith(ERROR_ONLY_ALLOWED_TOKEN);
+  });
+
   it("cannot be re-initialized", async () => {
     const settings = {
       swapHelper: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+      connext: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
       minAmountToChangePositionBase: 1,
       minEthToDeposit: 1,
+      maxEthToDeposit: 1,
       minAmountToWithdraw: 1,
       additionalLtvDistancePercent: 1,
       positionSizePercent: 1,

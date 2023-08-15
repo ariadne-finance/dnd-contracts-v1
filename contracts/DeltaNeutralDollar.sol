@@ -46,8 +46,8 @@ string constant ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL = "DND-06";
 string constant ERROR_POSITION_CLOSED = "DND-07";
 string constant ERROR_POSITION_UNCHANGED = "DND-08";
 string constant ERROR_IMPOSSIBLE_MODE = "DND-09";
-string constant ERROR_BETA_CAPPED = "DND-10";
-string constant ERROR_ONLY_STABLES_ARE_BRIDGED = "DND-11";
+string constant ERROR_ONLY_ALLOWED_TOKEN = "DND-10";
+string constant ERROR_ONLY_ALLOWED_DESTINATION_DOMAIN = "DND-11";
 
 /// @title Delta-neutral dollar vault
 
@@ -57,6 +57,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         /// @notice Address of the contract that implements asset swapping functionality.
         address swapHelper;
 
+        /// @notice Address of the Connext bridge.
+        address connext;
+
         /// @notice The minimum threshold of debt or collateral difference between the current position and the ideal calculated
         /// position that triggers an actual position change. Any changes below this threshold are disregarded.
         /// Note that this value is denominated in Aave's base currency.
@@ -64,6 +67,9 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         /// @notice The minimum amount of Ethereum to deposit.
         uint256 minEthToDeposit;
+
+        /// @notice The maximum amount of Ethereum to deposit.
+        uint256 maxEthToDeposit;
 
         /// @notice The minimum amount of DND tokens to withdraw.
         uint256 minAmountToWithdraw;
@@ -84,6 +90,16 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         /// Note that this value is set as a percentage and needs to be multiplied by 10. Therefore, "10" equates to 1%.
         uint8 minRebalancePercent;
     }
+
+    /// @notice Tokens allowed for deposit. Typically `ethToken` and WETH are set to true.
+    mapping(address token => bool isAllowedToBeDeposited) public allowedDepositToken;
+
+    /// @notice Tokens allowed for withdrawal. Typically `ethToken` and `stableToken` are set to true here.
+    /// This mapping applies both to withdrawal on the same chain and crosschain.
+    mapping(address token => bool isAllowedToBeWithdrawnIn) public allowedWithdrawToken;
+
+    /// @notice Connext destination domains allowed for crosschain withdrawals.
+    mapping(uint32 destinationDomain => bool isAllowedToBeWithdrawnTo) public allowedDestinationDomain;
 
     /// @notice actual contract settings
     Settings public settings;
@@ -117,26 +133,23 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     /// @param finalEthBalance The final balance in `ethToken` after closing the position
     event PositionClose(uint256 finalEthBalance);
 
-    /// @notice Emitted on withdrawal
-    /// @param amount how much DND has been burned
-    /// @param amountBase how much has been withdrawn denominated in Aave base currency
-    /// @param amountEth how much actual `ethToken` has been withdrawn from position
-    /// @param amountStable how much `stableToken` has been transfered to user after swap of `amountEth` to `stableToken`.
-    /// Note: this can be 0 if user decided to withdraw in `ethToken`
-
     /// @notice This event is emitted when a withdrawal takes place
+    /// @param token The token in which the withdraw was executed
+    /// @param amount The DND withdrawal amount requested by user
     /// @param amountBase The amount that has been withdrawn denoted in Aave's base currency. This is for reference only
     /// as no actual transfers of Aave base currency ever happens
     /// @param amountEth The actual amnount of `ethToken` that has been withdrawn from the position
-    /// @param amountStable The quantity of `stableToken` transferred to the user post the swap from `amountEth` to `stableToken`.
-    /// Please note: This may amount to 0 if the user chose to withdraw in `ethToken` instead
-    event PositionWithdraw(uint256 amountBase, uint256 amountEth, uint256 amountStable, uint32 destinationDomain);
+    /// @param amountToken The quantity of `token` transferred to the user post the swap from `ethToken` to `token` in case they are not the same
+    /// @param destinationDomain Connext destination domain. Set to '0' for same chain withdrawals
+    event PositionWithdraw(address token, uint256 amount, uint256 amountBase, uint256 amountEth, uint256 amountToken, uint32 destinationDomain);
 
     /// @notice This event is emitted when a deposit takes place
+    /// @param token The token which user deposited
+    /// @param amount The amount of that token user deposited
     /// @param amountBase The amount that has been deposited denoted in Aave's base currency. This is for reference only
     /// as no actual transfers of Aave base currency ever happens
     /// @param amountEth The actual amnount of `ethToken` that has been deposited into the position
-    event PositionDeposit(uint256 amountBase, uint256 amountEth);
+    event PositionDeposit(address token, uint256 amount, uint256 amountBase, uint256 amountEth);
 
     /// @notice Actual constructor of this upgradeable contract
     /// @param __decimals `decimals` for this contract's ERC20 properties. Should be equal to Aave base currency decimals, which is 8.
@@ -177,6 +190,11 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         ethTokenDecimals = IERC20MetadataUpgradeable(_ethToken).decimals();
         stableTokenDecimals = IERC20MetadataUpgradeable(_stableToken).decimals();
 
+        allowedDepositToken[_ethToken] = true;
+
+        allowedWithdrawToken[_ethToken] = true;
+        allowedWithdrawToken[_stableToken] = true;
+
         _transferOwnership(msg.sender);
     }
 
@@ -195,6 +213,21 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
     modifier onlyBalancerVault() {
         require(msg.sender == address(balancerVault), ERROR_ONLY_FLASHLOAN_LENDER);
+        _;
+    }
+
+    modifier onlyAllowedDepositToken(address token) {
+        require(allowedDepositToken[token] == true, ERROR_ONLY_ALLOWED_TOKEN);
+        _;
+    }
+
+    modifier onlyAllowedWithdrawToken(address token) {
+        require(allowedWithdrawToken[token] == true, ERROR_ONLY_ALLOWED_TOKEN);
+        _;
+    }
+
+    modifier onlyAllowedDestinationDomain(uint32 destinationDomain) {
+        require(allowedDestinationDomain[destinationDomain] == true, ERROR_ONLY_ALLOWED_DESTINATION_DOMAIN);
         _;
     }
 
@@ -550,21 +583,36 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     }
 
     /// @notice Deposit funds into vault
-    /// @param amountEth amount of `ethToken` to deposit
-    function deposit(uint256 amountEth) public whenFlagNotSet(FLAGS_DEPOSIT_PAUSED) whenFlagNotSet(FLAGS_POSITION_CLOSED) {
-        require(amountEth <= 2 ether, ERROR_BETA_CAPPED);
-        require(amountEth > 0 && amountEth >= settings.minEthToDeposit, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
+    /// param amountEth amount of `ethToken` to deposit
+    function deposit(address token, uint256 amount)
+        public
+        whenFlagNotSet(FLAGS_DEPOSIT_PAUSED)
+        whenFlagNotSet(FLAGS_POSITION_CLOSED)
+        onlyAllowedDepositToken(token)
+    {
+        require(amount > 0, ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT);
 
         uint256 totalBalanceBaseBefore = totalBalanceBase();
 
-        SafeTransferLib.safeTransferFrom(address(ethToken), msg.sender, address(this), amountEth);
+        SafeTransferLib.safeTransferFrom(address(token), msg.sender, address(this), amount);
+
+        uint256 amountEth = amount;
+        if (token != address(ethToken)) {
+            amountEth = approveAndSwap(IERC20(token), ethToken, amount);
+        }
+
+        require(
+            amountEth >= settings.minEthToDeposit && amountEth <= settings.maxEthToDeposit,
+            ERROR_INCORRECT_DEPOSIT_OR_WITHDRAWAL_AMOUNT
+        );
+
         _rebalance(false);
 
         uint256 totalBalanceBaseAfter = totalBalanceBase();
 
         if (totalSupply() == 0) {
             _mint(msg.sender, totalBalanceBaseAfter);
-            emit PositionDeposit(totalBalanceBaseAfter, amountEth);
+            emit PositionDeposit(token, amount, totalBalanceBaseAfter, amountEth);
             return;
         }
 
@@ -575,7 +623,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
         _mint(msg.sender, minted);
 
-        emit PositionDeposit(totalBalanceBaseAfter - totalBalanceBaseBefore, amountEth);
+        emit PositionDeposit(token, amount, totalBalanceBaseAfter - totalBalanceBaseBefore, amountEth);
     }
 
     function _calculateEthWithdrawAmount(uint256 amount) internal view returns (uint256 amountEth, uint256 amountBase) {
@@ -595,65 +643,73 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         require(amountEth <= SafeTransferLib.balanceOf(address(ethToken), address(this)), ERROR_CONTRACT_NOT_READY_FOR_WITHDRAWAL);
     }
 
-    /// @notice Withdraw from vault either in `ethToken` or `stableToken`
-    /// @param amount The amount of DND to be withdrawn
-    /// @param shouldSwapToStableToken Determines whether the `ethToken` equivalent of the withdrawn amount should be swapped to `stableToken` before transfer to the user,
-    /// or transferred as `ethToken` directly without any swap.
-    /// If set true, `ethToken` is swapped to `stableToken` prior to transfer.
-    /// If false, the required amount is withdrawn as `ethToken` directly with no swap.
-    function withdraw(uint256 amount, bool shouldSwapToStableToken) public whenFlagNotSet(FLAGS_WITHDRAW_PAUSED) {
+    /// @notice Withdraw from vault in `token`
+    /// @param token The token address to withdraw in. Typically this should be `ethToken` or `stableToken`
+    /// @param amount The amount of DND to withdraw
+    function withdraw(address token, uint256 amount)
+        public
+        whenFlagNotSet(FLAGS_WITHDRAW_PAUSED)
+        onlyAllowedWithdrawToken(token)
+    {
         (uint256 amountEth, uint256 amountBase) = _calculateEthWithdrawAmount(amount);
         _burn(msg.sender, amount);
 
-        uint256 amountStable;
+        uint256 amountToken;
 
-        if (shouldSwapToStableToken) {
-            amountStable = approveAndSwap(ethToken, stableToken, amountEth);
-            SafeTransferLib.safeTransfer(address(stableToken), msg.sender, amountStable);
+        if (token == address(ethToken)) {
+            SafeTransferLib.safeTransfer(address(ethToken), msg.sender, amountEth);
 
         } else {
-            SafeTransferLib.safeTransfer(address(ethToken), msg.sender, amountEth);
+            amountToken = approveAndSwap(ethToken, IERC20(token), amountEth);
+            SafeTransferLib.safeTransfer(token, msg.sender, amountToken);
         }
 
         _rebalance(false);
 
-        emit PositionWithdraw(amountBase, amountEth, amountStable, 0);
+        emit PositionWithdraw(token, amount, amountBase, amountEth, amountToken, 0);
     }
 
-    /// @notice Withdraw from vault in `stableToken` then bridge to another network via Connext
-    /// @param amount The amount of DND to be withdrawn
-    /// @param connext Connext bridge address
-    /// @param destinationDomain Connext destinationDomain
+    /// @notice Withdraw from vault in `token` then bridge to another network via Connext
+    /// @param token The token address to withdraw in. Typically this should be `stableToken`
+    /// @param amount The amount of DND to withdraw
+    /// @param destinationDomain Connext destination domain
     /// @param slippage Connext slippage allowed
-    /// @param relayerFee Connext relayerFee
-    function withdrawX(uint256 amount, address connext, uint32 destinationDomain, uint256 slippage, uint256 relayerFee) public payable whenFlagNotSet(FLAGS_WITHDRAW_PAUSED) {
+    /// @param relayerFee Connext relayer fee
+    function withdrawX(address token, uint256 amount, uint32 destinationDomain, uint256 slippage, uint256 relayerFee)
+        public
+        payable
+        whenFlagNotSet(FLAGS_WITHDRAW_PAUSED)
+        onlyAllowedDestinationDomain(destinationDomain)
+        onlyAllowedWithdrawToken(token)
+    {
         (uint256 amountEth, uint256 amountBase) = _calculateEthWithdrawAmount(amount);
+
         _burn(msg.sender, amount);
 
-        uint256 amountStable = approveAndSwap(ethToken, stableToken, amountEth);
+        uint256 amountToken = approveAndSwap(ethToken, IERC20(token), amountEth);
 
-        _bridge(connext, amountStable, destinationDomain, slippage, relayerFee);
+        _bridge(token, amountToken, destinationDomain, slippage, relayerFee);
 
         _rebalance(false);
 
-        emit PositionWithdraw(amountBase, amountEth, amountStable, destinationDomain);
+        emit PositionWithdraw(token, amount, amountBase, amountEth, amountToken, destinationDomain);
     }
 
-    function _bridge(address connext, uint256 amount, uint32 destinationDomain, uint256 slippage, uint256 relayerFee) internal {
-        possiblyApprove(stableToken, connext, amount);
+    function _bridge(address token, uint256 amount, uint32 destinationDomain, uint256 slippage, uint256 relayerFee) internal {
+        possiblyApprove(IERC20(token), settings.connext, amount);
 
         bytes memory callData;
-        IConnext(connext).xcall{value: relayerFee}(
+        IConnext(settings.connext).xcall{value: relayerFee}(
             destinationDomain,    // _destination: Domain ID of the destination chain
             msg.sender,           // _to: address of the target contract
-            address(stableToken), // _asset: address of the token contract
+            token,                // _asset: address of the token contract
             owner(),              // _delegate: address that can revert or forceLocal on destination
             amount,               // _amount: amount of tokens to transfer
             slippage,             // _slippage: max slippage the user will accept in BPS (e.g. 300 = 3%)
             callData              // _callData: the encoded calldata to send
         );
 
-        SafeTransferLib.safeApprove(address(stableToken), connext, 0);
+        SafeTransferLib.safeApprove(token, settings.connext, 0);
     }
 
     /// @notice Returns the Total Value Locked (TVL) in the Vault
@@ -753,8 +809,47 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     */
 
     /// @notice Update contract's `settings`. Method is only available to owner.
-    function setSettings(Settings calldata _settings) public onlyOwner {
+    function setSettings(Settings calldata _settings)
+        public
+        onlyOwner
+    {
         settings = _settings;
+    }
+
+    function setAllowedDepositToken(address token, bool isAllowed)
+        public
+        onlyOwner
+    {
+        if (isAllowed) {
+            allowedDepositToken[token] = true;
+            return;
+        }
+
+        delete allowedDepositToken[token];
+    }
+
+    function setAllowedWithdrawToken(address token, bool isAllowed)
+        public
+        onlyOwner
+    {
+        if (isAllowed) {
+            allowedWithdrawToken[token] = true;
+            return;
+        }
+
+        delete allowedWithdrawToken[token];
+    }
+
+    function setAllowedDestinationDomain(uint32 destinationDomain, bool isAllowed)
+        public
+        onlyOwner
+    {
+        if (isAllowed) {
+            allowedDestinationDomain[destinationDomain] = true;
+            return;
+        }
+
+        delete allowedDestinationDomain[destinationDomain];
     }
 
     function ltv() internal view returns (uint256) {
