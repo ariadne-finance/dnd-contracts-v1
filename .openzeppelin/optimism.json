@@ -2,15 +2,15 @@
   "manifestVersion": "3.2",
   "proxies": [
     {
-      "address": "0xeFded44FD7895d95CA9343cE53C4250b790F951B",
-      "txHash": "0x047fd416f2a5851003dc4f85a475f66adb025b5d1644543255e8de020e8dcb57",
+      "address": "0x496BF70eD3A38BA616E2670eA8B62C2140e2309f",
+      "txHash": "0x29fe6d65098d9660820ac2b52c83168e227937fa033c7cc7cc5144fddb377368",
       "kind": "uups"
     }
   ],
   "impls": {
-    "4dab2dcd487f3e6766990f7105e2a503b2d2f93cf48fe32a2a99f7c53d39fd29": {
-      "address": "0x29d94eB815C5e06E4984a2C7A1Dc05b38644816c",
-      "txHash": "0x49336399a738a05003ac37f77c2e700e5be6f73b7378e33439705b52c612f9eb",
+    "291b95deddad70887d61b29f17049f45190b2a20f21bc941a6af942fbce6ca8b": {
+      "address": "0x146b5EDcd75bD791AFCc815c4294cE9E663643c5",
+      "txHash": "0x64c27c47e97536319d8377687fb69d173f1ebf1fabab2e50d36bad9d4325cc5b",
       "layout": {
         "solcVersion": "0.8.21",
         "storage": [
@@ -120,1212 +120,92 @@
             "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:111"
           },
           {
-            "label": "settings",
+            "label": "allowedDepositToken",
             "offset": 0,
             "slot": "251",
-            "type": "t_struct(Settings)6935_storage",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:86"
-          },
-          {
-            "label": "aaveAddressProvider",
-            "offset": 0,
-            "slot": "256",
-            "type": "t_contract(IPoolAddressesProvider)923",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:88"
-          },
-          {
-            "label": "balancerVault",
-            "offset": 0,
-            "slot": "257",
-            "type": "t_contract(IVault)2290",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:89"
-          },
-          {
-            "label": "stableToken",
-            "offset": 0,
-            "slot": "258",
-            "type": "t_contract(IERC20)1664",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:92"
-          },
-          {
-            "label": "ethToken",
-            "offset": 0,
-            "slot": "259",
-            "type": "t_contract(IERC20)1664",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:95"
-          },
-          {
-            "label": "_decimals",
-            "offset": 20,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:97"
-          },
-          {
-            "label": "stableTokenDecimals",
-            "offset": 21,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:99"
-          },
-          {
-            "label": "ethTokenDecimals",
-            "offset": 22,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:100"
-          }
-        ],
-        "types": {
-          "t_address": {
-            "label": "address",
-            "numberOfBytes": "20"
-          },
-          "t_array(t_uint256)45_storage": {
-            "label": "uint256[45]",
-            "numberOfBytes": "1440"
-          },
-          "t_array(t_uint256)49_storage": {
-            "label": "uint256[49]",
-            "numberOfBytes": "1568"
-          },
-          "t_array(t_uint256)50_storage": {
-            "label": "uint256[50]",
-            "numberOfBytes": "1600"
-          },
-          "t_bool": {
-            "label": "bool",
-            "numberOfBytes": "1"
-          },
-          "t_contract(IERC20)1664": {
-            "label": "contract IERC20",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IPoolAddressesProvider)923": {
-            "label": "contract IPoolAddressesProvider",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IVault)2290": {
-            "label": "contract IVault",
-            "numberOfBytes": "20"
-          },
-          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
-            "label": "mapping(address => mapping(address => uint256))",
-            "numberOfBytes": "32"
-          },
-          "t_mapping(t_address,t_uint256)": {
-            "label": "mapping(address => uint256)",
-            "numberOfBytes": "32"
-          },
-          "t_string_storage": {
-            "label": "string",
-            "numberOfBytes": "32"
-          },
-          "t_struct(Settings)6935_storage": {
-            "label": "struct DeltaNeutralDollar.Settings",
-            "members": [
-              {
-                "label": "swapHelper",
-                "type": "t_address",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "label": "minAmountToChangePositionBase",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "1"
-              },
-              {
-                "label": "minEthToDeposit",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "2"
-              },
-              {
-                "label": "minAmountToWithdraw",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "3"
-              },
-              {
-                "label": "additionalLtvDistancePercent",
-                "type": "t_uint8",
-                "offset": 0,
-                "slot": "4"
-              },
-              {
-                "label": "positionSizePercent",
-                "type": "t_uint8",
-                "offset": 1,
-                "slot": "4"
-              },
-              {
-                "label": "flags",
-                "type": "t_uint8",
-                "offset": 2,
-                "slot": "4"
-              },
-              {
-                "label": "minRebalancePercent",
-                "type": "t_uint8",
-                "offset": 3,
-                "slot": "4"
-              }
-            ],
-            "numberOfBytes": "160"
-          },
-          "t_uint256": {
-            "label": "uint256",
-            "numberOfBytes": "32"
-          },
-          "t_uint8": {
-            "label": "uint8",
-            "numberOfBytes": "1"
-          }
-        }
-      }
-    },
-    "6e495013e2637711a215b487cf2f90a412de928ce3c03bea6eea4bf2deb2a9c4": {
-      "address": "0x222E9a4EbFD6bd9F7080AC67cB3D1dD8AF29D9be",
-      "txHash": "0x56a416e2e37fd5c71b826ceb63cd99ae72d0c1a53d6568968a0c94979c542374",
-      "layout": {
-        "solcVersion": "0.8.21",
-        "storage": [
-          {
-            "label": "_initialized",
-            "offset": 0,
-            "slot": "0",
-            "type": "t_uint8",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
-            "retypedFrom": "bool"
-          },
-          {
-            "label": "_initializing",
-            "offset": 1,
-            "slot": "0",
-            "type": "t_bool",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "1",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ContextUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
-          },
-          {
-            "label": "_balances",
-            "offset": 0,
-            "slot": "51",
-            "type": "t_mapping(t_address,t_uint256)",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:40"
-          },
-          {
-            "label": "_allowances",
-            "offset": 0,
-            "slot": "52",
-            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
-          },
-          {
-            "label": "_totalSupply",
-            "offset": 0,
-            "slot": "53",
-            "type": "t_uint256",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:44"
-          },
-          {
-            "label": "_name",
-            "offset": 0,
-            "slot": "54",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:46"
-          },
-          {
-            "label": "_symbol",
-            "offset": 0,
-            "slot": "55",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:47"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "56",
-            "type": "t_array(t_uint256)45_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:376"
-          },
-          {
-            "label": "_owner",
-            "offset": 0,
-            "slot": "101",
-            "type": "t_address",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "102",
-            "type": "t_array(t_uint256)49_storage",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "151",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ERC1967UpgradeUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:169"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "201",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "UUPSUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:111"
-          },
-          {
-            "label": "settings",
-            "offset": 0,
-            "slot": "251",
-            "type": "t_struct(Settings)6938_storage",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:87"
-          },
-          {
-            "label": "aaveAddressProvider",
-            "offset": 0,
-            "slot": "256",
-            "type": "t_contract(IPoolAddressesProvider)923",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:89"
-          },
-          {
-            "label": "balancerVault",
-            "offset": 0,
-            "slot": "257",
-            "type": "t_contract(IVault)2290",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:90"
-          },
-          {
-            "label": "stableToken",
-            "offset": 0,
-            "slot": "258",
-            "type": "t_contract(IERC20)1664",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:93"
-          },
-          {
-            "label": "ethToken",
-            "offset": 0,
-            "slot": "259",
-            "type": "t_contract(IERC20)1664",
+            "type": "t_mapping(t_address,t_bool)",
             "contract": "DeltaNeutralDollar",
             "src": "contracts/DeltaNeutralDollar.sol:96"
           },
           {
-            "label": "_decimals",
-            "offset": 20,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:98"
-          },
-          {
-            "label": "stableTokenDecimals",
-            "offset": 21,
-            "slot": "259",
-            "type": "t_uint8",
+            "label": "allowedWithdrawToken",
+            "offset": 0,
+            "slot": "252",
+            "type": "t_mapping(t_address,t_bool)",
             "contract": "DeltaNeutralDollar",
             "src": "contracts/DeltaNeutralDollar.sol:100"
           },
           {
-            "label": "ethTokenDecimals",
-            "offset": 22,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:101"
-          }
-        ],
-        "types": {
-          "t_address": {
-            "label": "address",
-            "numberOfBytes": "20"
-          },
-          "t_array(t_uint256)45_storage": {
-            "label": "uint256[45]",
-            "numberOfBytes": "1440"
-          },
-          "t_array(t_uint256)49_storage": {
-            "label": "uint256[49]",
-            "numberOfBytes": "1568"
-          },
-          "t_array(t_uint256)50_storage": {
-            "label": "uint256[50]",
-            "numberOfBytes": "1600"
-          },
-          "t_bool": {
-            "label": "bool",
-            "numberOfBytes": "1"
-          },
-          "t_contract(IERC20)1664": {
-            "label": "contract IERC20",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IPoolAddressesProvider)923": {
-            "label": "contract IPoolAddressesProvider",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IVault)2290": {
-            "label": "contract IVault",
-            "numberOfBytes": "20"
-          },
-          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
-            "label": "mapping(address => mapping(address => uint256))",
-            "numberOfBytes": "32"
-          },
-          "t_mapping(t_address,t_uint256)": {
-            "label": "mapping(address => uint256)",
-            "numberOfBytes": "32"
-          },
-          "t_string_storage": {
-            "label": "string",
-            "numberOfBytes": "32"
-          },
-          "t_struct(Settings)6938_storage": {
-            "label": "struct DeltaNeutralDollar.Settings",
-            "members": [
-              {
-                "label": "swapHelper",
-                "type": "t_address",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "label": "minAmountToChangePositionBase",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "1"
-              },
-              {
-                "label": "minEthToDeposit",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "2"
-              },
-              {
-                "label": "minAmountToWithdraw",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "3"
-              },
-              {
-                "label": "additionalLtvDistancePercent",
-                "type": "t_uint8",
-                "offset": 0,
-                "slot": "4"
-              },
-              {
-                "label": "positionSizePercent",
-                "type": "t_uint8",
-                "offset": 1,
-                "slot": "4"
-              },
-              {
-                "label": "flags",
-                "type": "t_uint8",
-                "offset": 2,
-                "slot": "4"
-              },
-              {
-                "label": "minRebalancePercent",
-                "type": "t_uint8",
-                "offset": 3,
-                "slot": "4"
-              }
-            ],
-            "numberOfBytes": "160"
-          },
-          "t_uint256": {
-            "label": "uint256",
-            "numberOfBytes": "32"
-          },
-          "t_uint8": {
-            "label": "uint8",
-            "numberOfBytes": "1"
-          }
-        }
-      }
-    },
-    "9695b2ddcc673493e574c1fd672aa2b6ff65a5fee5f77084568462a2c6a8c81a": {
-      "address": "0x1fFb5A42bf44339aAb64D8A97ee1643d8DBe09Fb",
-      "txHash": "0x0023e3cbe29f7be10381d16503d856730c93285e2aa0925dc942e7900988b908",
-      "layout": {
-        "solcVersion": "0.8.21",
-        "storage": [
-          {
-            "label": "_initialized",
+            "label": "allowedDestinationDomain",
             "offset": 0,
-            "slot": "0",
-            "type": "t_uint8",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
-            "retypedFrom": "bool"
-          },
-          {
-            "label": "_initializing",
-            "offset": 1,
-            "slot": "0",
-            "type": "t_bool",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "1",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ContextUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
-          },
-          {
-            "label": "_balances",
-            "offset": 0,
-            "slot": "51",
-            "type": "t_mapping(t_address,t_uint256)",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:40"
-          },
-          {
-            "label": "_allowances",
-            "offset": 0,
-            "slot": "52",
-            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
-          },
-          {
-            "label": "_totalSupply",
-            "offset": 0,
-            "slot": "53",
-            "type": "t_uint256",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:44"
-          },
-          {
-            "label": "_name",
-            "offset": 0,
-            "slot": "54",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:46"
-          },
-          {
-            "label": "_symbol",
-            "offset": 0,
-            "slot": "55",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:47"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "56",
-            "type": "t_array(t_uint256)45_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:376"
-          },
-          {
-            "label": "_owner",
-            "offset": 0,
-            "slot": "101",
-            "type": "t_address",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "102",
-            "type": "t_array(t_uint256)49_storage",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "151",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ERC1967UpgradeUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:169"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "201",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "UUPSUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:111"
-          },
-          {
-            "label": "settings",
-            "offset": 0,
-            "slot": "251",
-            "type": "t_struct(Settings)6938_storage",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:87"
-          },
-          {
-            "label": "aaveAddressProvider",
-            "offset": 0,
-            "slot": "256",
-            "type": "t_contract(IPoolAddressesProvider)923",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:89"
-          },
-          {
-            "label": "balancerVault",
-            "offset": 0,
-            "slot": "257",
-            "type": "t_contract(IVault)2290",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:90"
-          },
-          {
-            "label": "stableToken",
-            "offset": 0,
-            "slot": "258",
-            "type": "t_contract(IERC20)1664",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:93"
-          },
-          {
-            "label": "ethToken",
-            "offset": 0,
-            "slot": "259",
-            "type": "t_contract(IERC20)1664",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:96"
-          },
-          {
-            "label": "_decimals",
-            "offset": 20,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:98"
-          },
-          {
-            "label": "stableTokenDecimals",
-            "offset": 21,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:100"
-          },
-          {
-            "label": "ethTokenDecimals",
-            "offset": 22,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:101"
-          }
-        ],
-        "types": {
-          "t_address": {
-            "label": "address",
-            "numberOfBytes": "20"
-          },
-          "t_array(t_uint256)45_storage": {
-            "label": "uint256[45]",
-            "numberOfBytes": "1440"
-          },
-          "t_array(t_uint256)49_storage": {
-            "label": "uint256[49]",
-            "numberOfBytes": "1568"
-          },
-          "t_array(t_uint256)50_storage": {
-            "label": "uint256[50]",
-            "numberOfBytes": "1600"
-          },
-          "t_bool": {
-            "label": "bool",
-            "numberOfBytes": "1"
-          },
-          "t_contract(IERC20)1664": {
-            "label": "contract IERC20",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IPoolAddressesProvider)923": {
-            "label": "contract IPoolAddressesProvider",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IVault)2290": {
-            "label": "contract IVault",
-            "numberOfBytes": "20"
-          },
-          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
-            "label": "mapping(address => mapping(address => uint256))",
-            "numberOfBytes": "32"
-          },
-          "t_mapping(t_address,t_uint256)": {
-            "label": "mapping(address => uint256)",
-            "numberOfBytes": "32"
-          },
-          "t_string_storage": {
-            "label": "string",
-            "numberOfBytes": "32"
-          },
-          "t_struct(Settings)6938_storage": {
-            "label": "struct DeltaNeutralDollar.Settings",
-            "members": [
-              {
-                "label": "swapHelper",
-                "type": "t_address",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "label": "minAmountToChangePositionBase",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "1"
-              },
-              {
-                "label": "minEthToDeposit",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "2"
-              },
-              {
-                "label": "minAmountToWithdraw",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "3"
-              },
-              {
-                "label": "additionalLtvDistancePercent",
-                "type": "t_uint8",
-                "offset": 0,
-                "slot": "4"
-              },
-              {
-                "label": "positionSizePercent",
-                "type": "t_uint8",
-                "offset": 1,
-                "slot": "4"
-              },
-              {
-                "label": "flags",
-                "type": "t_uint8",
-                "offset": 2,
-                "slot": "4"
-              },
-              {
-                "label": "minRebalancePercent",
-                "type": "t_uint8",
-                "offset": 3,
-                "slot": "4"
-              }
-            ],
-            "numberOfBytes": "160"
-          },
-          "t_uint256": {
-            "label": "uint256",
-            "numberOfBytes": "32"
-          },
-          "t_uint8": {
-            "label": "uint8",
-            "numberOfBytes": "1"
-          }
-        }
-      }
-    },
-    "70ca0dcc268914e82f6016a8cccec239ba894ff3ede1161cb8ae538abc25e168": {
-      "address": "0x11Ab0c78F399E624872fe9C5F331132aDd58844e",
-      "txHash": "0x75c0fa42c31fb2fccc6959b16f485adfe799a168084f10892df71abc0262790f",
-      "layout": {
-        "solcVersion": "0.8.21",
-        "storage": [
-          {
-            "label": "_initialized",
-            "offset": 0,
-            "slot": "0",
-            "type": "t_uint8",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
-            "retypedFrom": "bool"
-          },
-          {
-            "label": "_initializing",
-            "offset": 1,
-            "slot": "0",
-            "type": "t_bool",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "1",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ContextUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
-          },
-          {
-            "label": "_balances",
-            "offset": 0,
-            "slot": "51",
-            "type": "t_mapping(t_address,t_uint256)",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:40"
-          },
-          {
-            "label": "_allowances",
-            "offset": 0,
-            "slot": "52",
-            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
-          },
-          {
-            "label": "_totalSupply",
-            "offset": 0,
-            "slot": "53",
-            "type": "t_uint256",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:44"
-          },
-          {
-            "label": "_name",
-            "offset": 0,
-            "slot": "54",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:46"
-          },
-          {
-            "label": "_symbol",
-            "offset": 0,
-            "slot": "55",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:47"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "56",
-            "type": "t_array(t_uint256)45_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:376"
-          },
-          {
-            "label": "_owner",
-            "offset": 0,
-            "slot": "101",
-            "type": "t_address",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "102",
-            "type": "t_array(t_uint256)49_storage",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "151",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ERC1967UpgradeUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:169"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "201",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "UUPSUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:111"
-          },
-          {
-            "label": "settings",
-            "offset": 0,
-            "slot": "251",
-            "type": "t_struct(Settings)7293_storage",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:92"
-          },
-          {
-            "label": "aaveAddressProvider",
-            "offset": 0,
-            "slot": "256",
-            "type": "t_contract(IPoolAddressesProvider)923",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:94"
-          },
-          {
-            "label": "balancerVault",
-            "offset": 0,
-            "slot": "257",
-            "type": "t_contract(IVault)2290",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:95"
-          },
-          {
-            "label": "stableToken",
-            "offset": 0,
-            "slot": "258",
-            "type": "t_contract(IERC20)1664",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:98"
-          },
-          {
-            "label": "ethToken",
-            "offset": 0,
-            "slot": "259",
-            "type": "t_contract(IERC20)1664",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:101"
-          },
-          {
-            "label": "_decimals",
-            "offset": 20,
-            "slot": "259",
-            "type": "t_uint8",
+            "slot": "253",
+            "type": "t_mapping(t_uint32,t_bool)",
             "contract": "DeltaNeutralDollar",
             "src": "contracts/DeltaNeutralDollar.sol:103"
           },
           {
-            "label": "stableTokenDecimals",
-            "offset": 21,
-            "slot": "259",
-            "type": "t_uint8",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:105"
-          },
-          {
-            "label": "ethTokenDecimals",
-            "offset": 22,
-            "slot": "259",
-            "type": "t_uint8",
+            "label": "settings",
+            "offset": 0,
+            "slot": "254",
+            "type": "t_struct(Settings)7296_storage",
             "contract": "DeltaNeutralDollar",
             "src": "contracts/DeltaNeutralDollar.sol:106"
-          }
-        ],
-        "types": {
-          "t_address": {
-            "label": "address",
-            "numberOfBytes": "20"
-          },
-          "t_array(t_uint256)45_storage": {
-            "label": "uint256[45]",
-            "numberOfBytes": "1440"
-          },
-          "t_array(t_uint256)49_storage": {
-            "label": "uint256[49]",
-            "numberOfBytes": "1568"
-          },
-          "t_array(t_uint256)50_storage": {
-            "label": "uint256[50]",
-            "numberOfBytes": "1600"
-          },
-          "t_bool": {
-            "label": "bool",
-            "numberOfBytes": "1"
-          },
-          "t_contract(IERC20)1664": {
-            "label": "contract IERC20",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IPoolAddressesProvider)923": {
-            "label": "contract IPoolAddressesProvider",
-            "numberOfBytes": "20"
-          },
-          "t_contract(IVault)2290": {
-            "label": "contract IVault",
-            "numberOfBytes": "20"
-          },
-          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
-            "label": "mapping(address => mapping(address => uint256))",
-            "numberOfBytes": "32"
-          },
-          "t_mapping(t_address,t_uint256)": {
-            "label": "mapping(address => uint256)",
-            "numberOfBytes": "32"
-          },
-          "t_string_storage": {
-            "label": "string",
-            "numberOfBytes": "32"
-          },
-          "t_struct(Settings)7293_storage": {
-            "label": "struct DeltaNeutralDollar.Settings",
-            "members": [
-              {
-                "label": "swapHelper",
-                "type": "t_address",
-                "offset": 0,
-                "slot": "0"
-              },
-              {
-                "label": "minAmountToChangePositionBase",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "1"
-              },
-              {
-                "label": "minEthToDeposit",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "2"
-              },
-              {
-                "label": "minAmountToWithdraw",
-                "type": "t_uint256",
-                "offset": 0,
-                "slot": "3"
-              },
-              {
-                "label": "additionalLtvDistancePercent",
-                "type": "t_uint8",
-                "offset": 0,
-                "slot": "4"
-              },
-              {
-                "label": "positionSizePercent",
-                "type": "t_uint8",
-                "offset": 1,
-                "slot": "4"
-              },
-              {
-                "label": "flags",
-                "type": "t_uint8",
-                "offset": 2,
-                "slot": "4"
-              },
-              {
-                "label": "minRebalancePercent",
-                "type": "t_uint8",
-                "offset": 3,
-                "slot": "4"
-              }
-            ],
-            "numberOfBytes": "160"
-          },
-          "t_uint256": {
-            "label": "uint256",
-            "numberOfBytes": "32"
-          },
-          "t_uint8": {
-            "label": "uint8",
-            "numberOfBytes": "1"
-          }
-        }
-      }
-    },
-    "304a7ec9a2a1fe27a014d8c363b75ef2e3ee88d2ae3e991cc02f13cc420fd3ff": {
-      "address": "0x905B754AD72b0b689552B9749943Ea4B13C2F555",
-      "txHash": "0x18aaac53be5f37940178c0f00df8e12c0be18efef5d0ada81f4f8c0da52a4ef6",
-      "layout": {
-        "solcVersion": "0.8.21",
-        "storage": [
-          {
-            "label": "_initialized",
-            "offset": 0,
-            "slot": "0",
-            "type": "t_uint8",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
-            "retypedFrom": "bool"
-          },
-          {
-            "label": "_initializing",
-            "offset": 1,
-            "slot": "0",
-            "type": "t_bool",
-            "contract": "Initializable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "1",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ContextUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
-          },
-          {
-            "label": "_balances",
-            "offset": 0,
-            "slot": "51",
-            "type": "t_mapping(t_address,t_uint256)",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:40"
-          },
-          {
-            "label": "_allowances",
-            "offset": 0,
-            "slot": "52",
-            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
-          },
-          {
-            "label": "_totalSupply",
-            "offset": 0,
-            "slot": "53",
-            "type": "t_uint256",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:44"
-          },
-          {
-            "label": "_name",
-            "offset": 0,
-            "slot": "54",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:46"
-          },
-          {
-            "label": "_symbol",
-            "offset": 0,
-            "slot": "55",
-            "type": "t_string_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:47"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "56",
-            "type": "t_array(t_uint256)45_storage",
-            "contract": "ERC20Upgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:376"
-          },
-          {
-            "label": "_owner",
-            "offset": 0,
-            "slot": "101",
-            "type": "t_address",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "102",
-            "type": "t_array(t_uint256)49_storage",
-            "contract": "OwnableUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "151",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "ERC1967UpgradeUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:169"
-          },
-          {
-            "label": "__gap",
-            "offset": 0,
-            "slot": "201",
-            "type": "t_array(t_uint256)50_storage",
-            "contract": "UUPSUpgradeable",
-            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:111"
-          },
-          {
-            "label": "settings",
-            "offset": 0,
-            "slot": "251",
-            "type": "t_struct(Settings)7285_storage",
-            "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:89"
           },
           {
             "label": "aaveAddressProvider",
             "offset": 0,
-            "slot": "256",
+            "slot": "261",
             "type": "t_contract(IPoolAddressesProvider)923",
             "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:91"
+            "src": "contracts/DeltaNeutralDollar.sol:108"
           },
           {
             "label": "balancerVault",
             "offset": 0,
-            "slot": "257",
+            "slot": "262",
             "type": "t_contract(IVault)2290",
             "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:92"
+            "src": "contracts/DeltaNeutralDollar.sol:109"
           },
           {
             "label": "stableToken",
             "offset": 0,
-            "slot": "258",
+            "slot": "263",
             "type": "t_contract(IERC20)1664",
             "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:95"
+            "src": "contracts/DeltaNeutralDollar.sol:112"
           },
           {
             "label": "ethToken",
             "offset": 0,
-            "slot": "259",
+            "slot": "264",
             "type": "t_contract(IERC20)1664",
             "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:98"
+            "src": "contracts/DeltaNeutralDollar.sol:115"
           },
           {
             "label": "_decimals",
             "offset": 20,
-            "slot": "259",
+            "slot": "264",
             "type": "t_uint8",
             "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:100"
+            "src": "contracts/DeltaNeutralDollar.sol:117"
           },
           {
             "label": "stableTokenDecimals",
             "offset": 21,
-            "slot": "259",
+            "slot": "264",
             "type": "t_uint8",
             "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:102"
+            "src": "contracts/DeltaNeutralDollar.sol:119"
           },
           {
             "label": "ethTokenDecimals",
             "offset": 22,
-            "slot": "259",
+            "slot": "264",
             "type": "t_uint8",
             "contract": "DeltaNeutralDollar",
-            "src": "contracts/DeltaNeutralDollar.sol:103"
+            "src": "contracts/DeltaNeutralDollar.sol:120"
           }
         ],
         "types": {
@@ -1361,6 +241,10 @@
             "label": "contract IVault",
             "numberOfBytes": "20"
           },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
           "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
             "label": "mapping(address => mapping(address => uint256))",
             "numberOfBytes": "32"
@@ -1369,11 +253,15 @@
             "label": "mapping(address => uint256)",
             "numberOfBytes": "32"
           },
+          "t_mapping(t_uint32,t_bool)": {
+            "label": "mapping(uint32 => bool)",
+            "numberOfBytes": "32"
+          },
           "t_string_storage": {
             "label": "string",
             "numberOfBytes": "32"
           },
-          "t_struct(Settings)7285_storage": {
+          "t_struct(Settings)7296_storage": {
             "label": "struct DeltaNeutralDollar.Settings",
             "members": [
               {
@@ -1383,53 +271,69 @@
                 "slot": "0"
               },
               {
-                "label": "minAmountToChangePositionBase",
-                "type": "t_uint256",
+                "label": "connext",
+                "type": "t_address",
                 "offset": 0,
                 "slot": "1"
               },
               {
-                "label": "minEthToDeposit",
+                "label": "minAmountToChangePositionBase",
                 "type": "t_uint256",
                 "offset": 0,
                 "slot": "2"
               },
               {
-                "label": "minAmountToWithdraw",
+                "label": "minEthToDeposit",
                 "type": "t_uint256",
                 "offset": 0,
                 "slot": "3"
               },
               {
+                "label": "maxEthToDeposit",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "minAmountToWithdraw",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
                 "label": "additionalLtvDistancePercent",
                 "type": "t_uint8",
                 "offset": 0,
-                "slot": "4"
+                "slot": "6"
               },
               {
                 "label": "positionSizePercent",
                 "type": "t_uint8",
                 "offset": 1,
-                "slot": "4"
+                "slot": "6"
               },
               {
                 "label": "flags",
                 "type": "t_uint8",
                 "offset": 2,
-                "slot": "4"
+                "slot": "6"
               },
               {
                 "label": "minRebalancePercent",
                 "type": "t_uint8",
                 "offset": 3,
-                "slot": "4"
+                "slot": "6"
               }
             ],
-            "numberOfBytes": "160"
+            "numberOfBytes": "224"
           },
           "t_uint256": {
             "label": "uint256",
             "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
           },
           "t_uint8": {
             "label": "uint8",
