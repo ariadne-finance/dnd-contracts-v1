@@ -584,7 +584,8 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     }
 
     /// @notice Deposit funds into vault
-    /// param amountEth amount of `ethToken` to deposit
+    /// @param token `token` to deposit. Must be one of the allowed ones or zero for native ETH deposits.
+    /// @param amount amount of `token` to deposit
     function deposit(address token, uint256 amount)
         public
         whenFlagNotSet(FLAGS_DEPOSIT_PAUSED)
