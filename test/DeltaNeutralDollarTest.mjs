@@ -178,8 +178,8 @@ describe("DeltaNeutralDollar", function() {
 
     await deltaNeutralDollar.initialize(
       8,
-      "DNH",
-      "Delta Neutral Dollar",
+      "DND",
+      "Delta Neutral Dividend",
       usdcAddress,
       wstethAddress,
       BALANCER_VAULT,
