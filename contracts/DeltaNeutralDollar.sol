@@ -31,9 +31,10 @@ uint8 constant FLASH_LOAN_MODE_CLOSE_POSITION = 3;
 uint8 constant FLASH_LOAN_MODE_REBALANCE_SUPPLY_AND_BORROW = 4;
 uint8 constant FLASH_LOAN_MODE_REBALANCE_REPAY_THEN_WITHDRAW = 5;
 
-uint8 constant FLAGS_POSITION_CLOSED = 1 << 0;
-uint8 constant FLAGS_DEPOSIT_PAUSED  = 1 << 1;
-uint8 constant FLAGS_WITHDRAW_PAUSED = 1 << 2;
+uint8 constant FLAGS_POSITION_CLOSED   = 1 << 0;
+uint8 constant FLAGS_DEPOSIT_PAUSED    = 1 << 1;
+uint8 constant FLAGS_WITHDRAW_PAUSED   = 1 << 2;
+uint8 constant FLAGS_WITHDRAW_X_PAUSED = 1 << 3;
 
 uint256 constant EXTRACT_LTV_FROM_POOL_CONFIGURATION_DATA_MASK = (1 << 16) - 1;
 
@@ -679,6 +680,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
         public
         payable
         whenFlagNotSet(FLAGS_WITHDRAW_PAUSED)
+        whenFlagNotSet(FLAGS_WITHDRAW_X_PAUSED)
         onlyAllowedDestinationDomain(destinationDomain)
         onlyAllowedWithdrawToken(token)
     {
