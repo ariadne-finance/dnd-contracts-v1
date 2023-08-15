@@ -60,14 +60,18 @@ describe("SwapHelperArbitrumOneUniswapV3", function() {
     expect(await usdce.balanceOf(myAccount.address)).to.be.withinPercent(ONE_GRAND_USDCE, 0.2);
   });
 
-  it("swap weth to wsteth", async () => {
-    await weth.connect(impersonatorWeth).transfer(myAccount.address, ONE_ETHER);
-
+  it("swap weth to wsteth and back", async () => {
     expect(await wsteth.balanceOf(myAccount.address)).to.be.eq(0);
+    expect(await weth.balanceOf(myAccount.address)).to.be.eq(0);
+
+    await weth.connect(impersonatorWeth).transfer(myAccount.address, ONE_ETHER);
 
     await swapHelper.swap(await weth.getAddress(), await wsteth.getAddress(), ONE_ETHER, myAccount.address);
 
     const wstEthBalance = await wsteth.balanceOf(myAccount.address);
     expect(wstEthBalance).to.be.gt(1)
+
+    await swapHelper.swap(await wsteth.getAddress(), await weth.getAddress(), wstEthBalance, myAccount.address);
+    expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER, 1);
   });
 });

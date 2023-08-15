@@ -43,6 +43,17 @@ contract SwapHelperArbitrumOneUniswapV3 is ISwapHelper {
 
             return ISwapRouter(ROUTER).exactInput(params);
 
+        } else if (from == WSTETH && to == WETH) {
+            ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+                path: abi.encodePacked(WSTETH, uint24(100), WETH),
+                recipient: recipient,
+                deadline: block.timestamp,
+                amountIn: amount,
+                amountOutMinimum: 0
+            });
+
+            return ISwapRouter(ROUTER).exactInput(params);
+
         } else if (from == USDCE && to == WSTETH) {
             ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
                 path: abi.encodePacked(USDCE, uint24(500), WETH, uint24(100), WSTETH),
