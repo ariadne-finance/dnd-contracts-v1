@@ -34,7 +34,7 @@ module.exports = {
 
     polygon: {
       url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      chainId: 42161,
+      chainId: 0x89,
       accounts
     }
   },
