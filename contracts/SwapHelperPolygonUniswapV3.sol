@@ -32,7 +32,29 @@ contract SwapHelperPolygonUniswapV3 is ISwapHelper {
         SafeTransferLib.safeTransferFrom(from, msg.sender, address(this), amount);
         SafeTransferLib.safeApprove(from, ROUTER, amount);
 
-        if (from == USDC && to == WSTETH) {
+        if (from == WETH && to == WSTETH) {
+            ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+                path: abi.encodePacked(WETH, uint24(100), WSTETH),
+                recipient: recipient,
+                deadline: block.timestamp,
+                amountIn: amount,
+                amountOutMinimum: 0
+            });
+
+            return ISwapRouter(ROUTER).exactInput(params);
+
+        } else if (from == WSTETH && to == WETH) {
+            ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+                path: abi.encodePacked(WSTETH, uint24(100), WETH),
+                recipient: recipient,
+                deadline: block.timestamp,
+                amountIn: amount,
+                amountOutMinimum: 0
+            });
+
+            return ISwapRouter(ROUTER).exactInput(params);
+
+        } else if (from == USDC && to == WSTETH) {
             ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
                 path: abi.encodePacked(USDC, uint24(500), WETH, uint24(100), WSTETH),
                 recipient: recipient,

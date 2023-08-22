@@ -11,8 +11,8 @@ const expect = chai.expect;
 describe("SwapHelperPolygonUniswapV3", function() {
   let snapshot;
 
-  let myAccount, impersonatorUsdc;
-  let wsteth, usdc;
+  let myAccount, impersonatorUsdc, impersonatorWeth;
+  let wsteth, usdc, weth;
   let swapHelper;
 
   before(async () => {
@@ -24,12 +24,17 @@ describe("SwapHelperPolygonUniswapV3", function() {
 
     usdc = await ethers.getContractAt('IERC20', '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174');
     wsteth = await ethers.getContractAt('IERC20', '0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD');
+    weth = await ethers.getContractAt('IERC20', '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619');
 
     impersonatorUsdc = await ethers.getImpersonatedSigner('0x0639556F03714A74a5fEEaF5736a4A64fF70D206'); // someone wealthy
     await setBalance(impersonatorUsdc.address, ONE_ETHER);
 
+    impersonatorWeth = await ethers.getImpersonatedSigner('0x1eED63EfBA5f81D95bfe37d82C8E736b974F477b'); // someone wealthy
+    await setBalance(impersonatorWeth.address, ONE_ETHER);
+
     await wsteth.approve(await swapHelper.getAddress(), 2n**256n-1n);
     await usdc.approve(await swapHelper.getAddress(), 2n**256n-1n);
+    await weth.approve(await swapHelper.getAddress(), 2n**256n-1n);
 
     snapshot = await takeSnapshot();
   });
@@ -53,5 +58,20 @@ describe("SwapHelperPolygonUniswapV3", function() {
     await swapHelper.swap(await wsteth.getAddress(), await usdc.getAddress(), wstEthBalance, myAccount.address);
 
     expect(await usdc.balanceOf(myAccount.address)).to.be.withinPercent(ONE_GRAND_USDCE, 0.2);
+  });
+
+  it("swap weth to wsteth and back", async () => {
+    expect(await wsteth.balanceOf(myAccount.address)).to.be.eq(0);
+    expect(await weth.balanceOf(myAccount.address)).to.be.eq(0);
+
+    await weth.connect(impersonatorWeth).transfer(myAccount.address, ONE_ETHER);
+
+    await swapHelper.swap(await weth.getAddress(), await wsteth.getAddress(), ONE_ETHER, myAccount.address);
+
+    const wstEthBalance = await wsteth.balanceOf(myAccount.address);
+    expect(wstEthBalance).to.be.gt(1)
+
+    await swapHelper.swap(await wsteth.getAddress(), await weth.getAddress(), wstEthBalance, myAccount.address);
+    expect(await weth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER, 1);
   });
 });
