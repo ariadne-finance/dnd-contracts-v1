@@ -8,23 +8,23 @@ import { IPoolAddressesProvider } from "@aave/core-v3/contracts/interfaces/IPool
 
 import "./ISwapHelper.sol";
 
-address constant ADDRESSES_PROVIDER = 0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb; // solhint-disable-line var-name-mixedcase
-
 contract SwapHelperEmulator is ISwapHelper {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     address private custodian;
     address private wstethToken;
     address private wethToken;
+    address private addressesProvider;
 
-    constructor(address _custodian, address _ethToken, address _wethToken) {
+    constructor(address _custodian, address _ethToken, address _wethToken, address _addressesProvider) {
         custodian = _custodian;
         wstethToken = _ethToken;
         wethToken = _wethToken;
+        addressesProvider = _addressesProvider;
     }
 
     function oracle() internal view returns (IAaveOracle) {
-        return IAaveOracle(IPoolAddressesProvider(ADDRESSES_PROVIDER).getPriceOracle());
+        return IAaveOracle(IPoolAddressesProvider(addressesProvider).getPriceOracle());
     }
 
     function swap(address from, address to, uint256 amount, address recipient)

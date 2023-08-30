@@ -7,20 +7,25 @@ const ONE_ETHER = 1n * 10n ** 18n;
 chai.use(withinPercent);
 const expect = chai.expect;
 
-const ADDRESSES_PROVIDER = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'; // optimism, arbitrum and polygon
-const BALANCER_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'; // optimism, arbitrum and polygon
+const BALANCER_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'; // optimism, arbitrum, polygon and base
+
+const AAVE_ADDRESSES_PROVIDER_OPTIMISM_ARBITRUM_POLYGON = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb';
+const AAVE_ADDRESSES_PROVIDER_BASE = '0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D';
 
 const WSTETH_OPTIMISM = '0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb';
 const WSTETH_ARBITRUM = '0x5979D7b546E38E414F7E9822514be443A4800529';
 const WSTETH_POLYGON = '0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD';
+const CBETH_BASE = '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22';
 
 const WETH_OPTIMISM = '0x4200000000000000000000000000000000000006';
 const WETH_ARBITRUM = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1';
 const WETH_POLYGON = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619';
+const WETH_BASE = '0x4200000000000000000000000000000000000006';
 
 const USDC_OPTIMISM = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607';
 const USDC_ARBITRUM = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8';
 const USDC_POLYGON = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
+const USDBC_BASE = '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA';
 
 const CONNEXT_OPTIMISM = '0x8f7492DE823025b4CfaAB1D34c58963F2af5DEDA';
 const CONNEXT_ARBITRUM = '0xEE9deC2712cCE65174B561151701Bf54b99C24C8';
@@ -33,18 +38,22 @@ const CONNEXT_DOMAIN_ID_POLYGON = 1886350457;
 const USDC_SPONSOR_OPTIMISM = '0xEbe80f029b1c02862B9E8a70a7e5317C06F62Cae';
 const USDC_SPONSOR_ARBITRUM = '0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef';
 const USDC_SPONSOR_POLYGON = '0x0639556F03714A74a5fEEaF5736a4A64fF70D206';
+const USDBC_SPONSOR_BASE = '0x4c80E24119CFB836cdF0a6b53dc23F04F7e652CA';
 
 const WSTETH_SPONSOR_OPTIMISM = '0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA';
 const WSTETH_SPONSOR_ARBITRUM = '0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf';
 const WSTETH_SPONSOR_POLYGON = '0xf59036caebea7dc4b86638dfa2e3c97da9fccd40';
+const CBETH_SPONSOR_BASE = '0x9c4ec768c28520B50860ea7a15bd7213a9fF58bf';
 
 const WETH_SPONSOR_OPTIMISM = '0xc4d4500326981eacD020e20A81b1c479c161c7EF';
 const WETH_SPONSOR_ARBITRUM = '0x0dF5dfd95966753f01cb80E76dc20EA958238C46';
 const WETH_SPONSOR_POLYGON = '0xF25212E676D1F7F89Cd72fFEe66158f541246445';
+const WETH_SPONSOR_BASE = '0x46e6b214b524310239732d51387075e0e70970bf';
 
 const CHAIN_OPTIMISM = 'optimism';
 const CHAIN_ARBITRUM = 'arbitrum';
 const CHAIN_POLYGON = 'polygon';
+const CHAIN_BASE = 'base';
 
 const FLAGS_DEPOSIT_PAUSED  = 1 << 1;
 const FLAGS_WITHDRAW_PAUSED = 1 << 2;
@@ -71,6 +80,7 @@ describe("DeltaNeutralDollar", function() {
 
   let wstethAddress, usdcAddress, wethAddress;
   let usdc, wsteth, weth;
+  let aaveAddressesProvider;
 
   let deltaNeutralDollar;
   let swapHelper;
@@ -88,9 +98,10 @@ describe("DeltaNeutralDollar", function() {
   let connextDestinationDomain;
 
   async function detectChain() {
-    const [ optimismCode, arbitrumCode ] = await Promise.all([
+    const [ optimismCode, arbitrumCode, baseCode ] = await Promise.all([
       ethers.provider.getCode(WSTETH_OPTIMISM),
-      ethers.provider.getCode(WSTETH_ARBITRUM)
+      ethers.provider.getCode(WSTETH_ARBITRUM),
+      ethers.provider.getCode(CBETH_BASE)
     ]);
 
     if (optimismCode.length > 2) {
@@ -103,6 +114,7 @@ describe("DeltaNeutralDollar", function() {
       wstethSponsorAddress = WSTETH_SPONSOR_OPTIMISM;
       wethAddress = WETH_OPTIMISM;
       wethSponsorAddress = WETH_SPONSOR_OPTIMISM;
+      aaveAddressesProvider = AAVE_ADDRESSES_PROVIDER_OPTIMISM_ARBITRUM_POLYGON;
       return;
     }
 
@@ -116,6 +128,21 @@ describe("DeltaNeutralDollar", function() {
       wstethSponsorAddress = WSTETH_SPONSOR_ARBITRUM;
       wethAddress = WETH_ARBITRUM;
       wethSponsorAddress = WETH_SPONSOR_ARBITRUM;
+      aaveAddressesProvider = AAVE_ADDRESSES_PROVIDER_OPTIMISM_ARBITRUM_POLYGON;
+      return;
+    }
+
+    if (baseCode.length > 2) {
+      currentChain = CHAIN_BASE;
+      connextAddress = ethers.ZeroAddress; // is not supported
+      connextDestinationDomain = 0; // is not supported
+      wstethAddress = CBETH_BASE;
+      usdcAddress = USDBC_BASE;
+      usdcSponsorAddress = USDBC_SPONSOR_BASE;
+      wstethSponsorAddress = CBETH_SPONSOR_BASE;
+      wethAddress = WETH_BASE;
+      wethSponsorAddress = WETH_SPONSOR_BASE;
+      aaveAddressesProvider = AAVE_ADDRESSES_PROVIDER_BASE;
       return;
     }
 
@@ -128,6 +155,7 @@ describe("DeltaNeutralDollar", function() {
     wstethSponsorAddress = WSTETH_SPONSOR_POLYGON;
     wethAddress = WETH_POLYGON;
     wethSponsorAddress = WETH_SPONSOR_POLYGON;
+    aaveAddressesProvider = AAVE_ADDRESSES_PROVIDER_OPTIMISM_ARBITRUM_POLYGON;
   }
 
   before(async () => {
@@ -141,7 +169,7 @@ describe("DeltaNeutralDollar", function() {
     impersonatorUsdc = await ethers.getImpersonatedSigner(usdcSponsorAddress);
     await setBalance(impersonatorUsdc.address, ONE_ETHER);
 
-    const addressProvider = await ethers.getContractAt('IPoolAddressesProvider', ADDRESSES_PROVIDER);
+    const addressProvider = await ethers.getContractAt('IPoolAddressesProvider', aaveAddressesProvider);
 
     const SwapHelper = await ethers.getContractFactory('SwapHelperEmulator');
     const DeltaNeutralDollar = await ethers.getContractFactory('DeltaNeutralDollar');
@@ -149,7 +177,7 @@ describe("DeltaNeutralDollar", function() {
 
     [ mockedOracle, swapHelper, deltaNeutralDollar ] = await Promise.all([
       MockAaveOracle.deploy(await addressProvider.getPriceOracle()),
-      SwapHelper.deploy(swapEmulatorCustodian.address, wstethAddress, wethAddress),
+      SwapHelper.deploy(swapEmulatorCustodian.address, wstethAddress, wethAddress, aaveAddressesProvider),
       DeltaNeutralDollar.deploy()
     ]);
 
@@ -183,7 +211,7 @@ describe("DeltaNeutralDollar", function() {
       usdcAddress,
       wstethAddress,
       BALANCER_VAULT,
-      ADDRESSES_PROVIDER,
+      aaveAddressesProvider,
       settings
     );
 
@@ -209,9 +237,11 @@ describe("DeltaNeutralDollar", function() {
 
     await deltaNeutralDollar.connect(ownerAccount).setAllowedDepositToken(await weth.getAddress(), true);
 
-    await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_OPTIMISM, true);
-    await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_ARBITRUM, true);
-    await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_POLYGON, true);
+    if (currentChain !== CHAIN_BASE) {
+      await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_OPTIMISM, true);
+      await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_ARBITRUM, true);
+      await deltaNeutralDollar.connect(ownerAccount).setAllowedDestinationDomain(CONNEXT_DOMAIN_ID_POLYGON, true);
+    }
 
     pool = await ethers.getContractAt('IPool', await addressProvider.getPool());
 
@@ -547,16 +577,16 @@ describe("DeltaNeutralDollar", function() {
     await wsteth.transfer(liquidatorAccount.address, await wsteth.balanceOf(myAccount.address));
 
     const myBalanceBefore = await deltaNeutralDollar.balanceOf(myAccount.address);
-    await deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalanceBefore / 100n * 79n);
+    await deltaNeutralDollar.withdraw(await wsteth.getAddress(), myBalanceBefore / 100n * 75n);
 
     let diff = await deltaNeutralDollar.calculateRequiredPositionChange();
     expect(diff.toObject()).to.deep.equal({ collateralChangeBase: 0n, debtChangeBase: 0n });
 
-    // about 79% has been withdrawn, so 21% must be left.
-    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2);
-    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2);
-    expect(await deltaNeutralDollar.totalSupply()).to.be.withinPercent(myBalanceBefore / 100n * 21n, 2); // because for a single user it's the same as totalBalance
-    expect(await wsteth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 79n, 2);
+    // about 75% has been withdrawn, so 25% must be left.
+    expect(await deltaNeutralDollar.balanceOf(myAccount.address)).to.be.withinPercent(myBalanceBefore / 100n * 25n, 2);
+    expect(await deltaNeutralDollar.totalBalanceBase()).to.be.withinPercent(myBalanceBefore / 100n * 25n, 2);
+    expect(await deltaNeutralDollar.totalSupply()).to.be.withinPercent(myBalanceBefore / 100n * 25n, 2); // because for a single user it's the same as totalBalance
+    expect(await wsteth.balanceOf(myAccount.address)).to.be.withinPercent(ONE_ETHER / 100n * 75n, 2);
   });
 
   it("withdraw in stable", async () => {
@@ -578,6 +608,11 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("withdraw to connext", async () => {
+    if (currentChain == CHAIN_BASE) {
+      console.log("connext not supported on base");
+      return;
+    }
+
     await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     // burn to zero
@@ -591,6 +626,11 @@ describe("DeltaNeutralDollar", function() {
   });
 
   it("withdraw to connext to disabled destination domain", async () => {
+    if (currentChain == CHAIN_BASE) {
+      console.log("connext not supported on base");
+      return;
+    }
+
     await deltaNeutralDollar.deposit(await wsteth.getAddress(), ONE_ETHER);
 
     const myBalance = await deltaNeutralDollar.balanceOf(myAccount.address);
@@ -932,6 +972,7 @@ describe("DeltaNeutralDollar", function() {
       [CHAIN_ARBITRUM]: 'SwapHelperArbitrumOneUniswapV3',
       [CHAIN_OPTIMISM]: 'SwapHelperOptimisticEthereumUniswapV3',
       [CHAIN_POLYGON]: 'SwapHelperPolygonUniswapV3',
+      [CHAIN_BASE]: 'SwapHelperBaseUniswapV3',
     };
 
     const SwapHelper = await ethers.getContractFactory(SWAP_HELPER_NAME_BY_CHAIN[currentChain]);
