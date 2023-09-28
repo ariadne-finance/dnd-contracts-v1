@@ -36,6 +36,12 @@ module.exports = {
       url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       chainId: 0x89,
       accounts
+    },
+
+    base: {
+      url: `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`,
+      chainId: 0x2105,
+      accounts
     }
   },
 
@@ -43,8 +49,19 @@ module.exports = {
     apiKey: {
       optimisticEthereum: process.env.ETHERSCAN_OPTIMISTIC_ETHEREUM,
       arbitrumOne: process.env.ETHERSCAN_ARBITRUM_ONE,
-      polygon: process.env.ETHERSCAN_POLYGON
-    }
+      polygon: process.env.ETHERSCAN_POLYGON,
+      base: process.env.ETHERSCAN_BASE
+    },
+    customChains: [
+      {
+        network: "base",
+        chainId: 0x2105,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org"
+        }
+      }
+    ]
   },
 
   solidity: {
