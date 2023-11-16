@@ -9,7 +9,7 @@ if (process.arch !== 'arm64' && process.platform !== 'darwin') {
   process.exit(1);
 }
 
-const LAST_VERSION = '0.8.21';
+const LAST_VERSION = '0.8.23';
 
 const localSolcFilename = '/opt/homebrew/Cellar/solidity/' + LAST_VERSION + '/bin/solc';
 
