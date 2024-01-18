@@ -237,7 +237,7 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
     function closePosition() public whenFlagNotSet(FLAGS_POSITION_CLOSED) onlyOwner {
         settings.flags = settings.flags | FLAGS_POSITION_CLOSED;
 
-        (, , address variableDebtTokenAddress) = poolDataProvider().getReserveTokensAddresses(address(ethToken));
+        (, , address variableDebtTokenAddress) = IPoolDataProvider(aaveAddressProvider.getPoolDataProvider()).getReserveTokensAddresses(address(ethToken));
 
         uint256 debtEth = SafeTransferLib.balanceOf(variableDebtTokenAddress, address(this));
         uint256 balanceEth = SafeTransferLib.balanceOf(address(ethToken), address(this));
@@ -862,10 +862,6 @@ contract DeltaNeutralDollar is IFlashLoanRecipient, ERC20Upgradeable, OwnableUpg
 
     function pool() internal view returns (IPool) {
         return IPool(aaveAddressProvider.getPool());
-    }
-
-    function poolDataProvider() internal view returns (IPoolDataProvider) {
-        return IPoolDataProvider(aaveAddressProvider.getPoolDataProvider());
     }
 
     function oracle() internal view returns (IAaveOracle) {
