@@ -27,7 +27,7 @@
     "hardhat-abi-exporter": "^2.10.1",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-deploy": "^0.11.34",
-    "solady": "^0.0.162",
+    "solady": "^0.0.165",
     "solhint": "^4.0.0",
     "solidity-docgen": "^0.6.0-beta.35"
   }
